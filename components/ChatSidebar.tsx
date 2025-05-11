@@ -2,18 +2,31 @@
 
 import { Plus, X } from 'lucide-react';
 
-export default function ChatSidebar() {
+interface ChatSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   return (
     <>
       {/* Mobile Overlay */}
-      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" />
+      <div 
+        className={`fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-200 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
 
       {/* Sidebar */}
-      <div className="fixed lg:static inset-y-0 left-0 z-50 w-64 h-full bg-accent/5 border-r border-accent/10 flex flex-col">
+      <div className={`fixed lg:static inset-0 lg:inset-y-0 lg:left-0 z-50 lg:w-64 lg:h-full bg-white lg:border-r border-accent/10 flex flex-col transition-transform duration-200 ${
+        isOpen ? 'translate-y-0' : '-translate-y-full lg:translate-y-0 lg:translate-x-0'
+      }`}>
         {/* Mobile Header */}
         <div className="flex items-center justify-between p-4 border-b border-accent/10 lg:hidden">
           <h2 className="text-xl font-cal text-accent">IndyChat</h2>
           <button
+            onClick={onClose}
             className="p-2 hover:bg-accent/10 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-accent" />
