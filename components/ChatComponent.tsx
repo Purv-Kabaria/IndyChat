@@ -421,12 +421,6 @@ export default function ChatComponent() {
       } else if (messages.length === 0) {
         setMessages([
           {
-            role: "user",
-            content: "Hello! I'd like to learn about Indianapolis.",
-            timestamp: new Date(),
-            id: generateMessageId(),
-          },
-          {
             role: "assistant",
             content:
               "Hello! How can I help you with Indianapolis city information today?",
@@ -497,12 +491,6 @@ export default function ChatComponent() {
   const startNewChat = () => {
     setMessages([
       {
-        role: "user",
-        content: "Hello! I'd like to learn about Indianapolis.",
-        timestamp: new Date(),
-        id: generateMessageId(),
-      },
-      {
         role: "assistant",
         content:
           "Hello! How can I help you with Indianapolis city information today?",
@@ -535,8 +523,8 @@ export default function ChatComponent() {
       <div
         className={`bg-accent text-primary flex-shrink-0 flex flex-col transition-all duration-300 shadow-lg 
         ${
-          sidebarOpen 
-            ? "fixed inset-0 w-full z-50" 
+          sidebarOpen
+            ? "fixed inset-0 w-full z-50"
             : "w-64 absolute -translate-x-full md:translate-x-0 md:relative md:w-64 z-40"
         } h-full`}>
         <div className="p-4 border-b border-primary/10 flex items-center justify-between">
@@ -551,7 +539,7 @@ export default function ChatComponent() {
             </div>
             <h1 className="font-semibold text-lg">Indy Chat</h1>
           </div>
-          
+
           {/* Close button for mobile */}
           {sidebarOpen && (
             <button
