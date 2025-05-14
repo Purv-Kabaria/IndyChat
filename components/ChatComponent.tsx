@@ -1,14 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Send,
-  Bot,
-  User,
   MenuIcon,
   Plus,
-  Sparkles,
   Loader2,
   Paperclip,
   X,
@@ -17,8 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
@@ -47,6 +43,92 @@ type Message = {
   id: string;
   attachedFiles?: UploadedFile[];
 };
+
+function extractIframes(content: string): { iframes: string[], textSegments: string[] } {
+  const iframeRegex = /<iframe[^>]*>[\s\S]*?<\/iframe>/gi;
+  const textSegments: string[] = [];
+  const iframes: string[] = [];
+  
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = iframeRegex.exec(content)) !== null) {
+    const textBefore = content.substring(lastIndex, match.index).trim();
+    if (textBefore) textSegments.push(textBefore);
+    
+    iframes.push(match[0]);
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  const textAfter = content.substring(lastIndex).trim();
+  if (textAfter) textSegments.push(textAfter);
+  
+  if (iframes.length === 0) {
+    textSegments.push(content);
+  }
+  
+  return { iframes, textSegments };
+}
+
+function createSafeIframe(iframeHtml: string, isMobile: boolean): React.ReactElement {
+  const srcMatch = iframeHtml.match(/src=["\'](.*?)["\']/i);
+  const src = srcMatch ? srcMatch[1] : "";
+
+  const widthAttrMatch = iframeHtml.match(/width=["\'](.*?)["\']/i);
+  const heightAttrMatch = iframeHtml.match(/height=["\'](.*?)["\']/i);
+
+  const numWidth = widthAttrMatch ? parseInt(widthAttrMatch[1], 10) : NaN;
+  const numHeight = heightAttrMatch ? parseInt(heightAttrMatch[1], 10) : NaN;
+
+  const iframeProps = {
+    src: src,
+    className: "w-full h-full border-none",
+    sandbox: "allow-scripts allow-same-origin allow-forms",
+    loading: "lazy" as "lazy", 
+    title: "Embedded content", 
+    referrerPolicy: "no-referrer" as "no-referrer", 
+    allowFullScreen: true,
+  };
+
+  if (isMobile) {
+    let aspectRatioClass = "aspect-w-4 aspect-h-3"; // Default for mobile
+    if (!isNaN(numWidth) && !isNaN(numHeight) && numHeight > 0) {
+        const ratio = numWidth / numHeight;
+        if (Math.abs(ratio - (16/9)) < 0.01) { // Use a smaller tolerance for precision
+          aspectRatioClass = "aspect-w-16 aspect-h-9";
+        } else if (Math.abs(ratio - (4/3)) < 0.01) {
+          aspectRatioClass = "aspect-w-4 aspect-h-3";
+        }
+        // Add other common ratios if needed, e.g., 1:1, 3:2
+    }
+    return (
+      <div className={`w-full ${aspectRatioClass} rounded-lg overflow-hidden`}>
+        <iframe {...iframeProps} />
+      </div>
+    );
+  } else { // Desktop
+    const styleWidth = !isNaN(numWidth) 
+      ? `${numWidth}px` 
+      : (widthAttrMatch ? widthAttrMatch[1] : "600px");
+    const styleHeight = !isNaN(numHeight) 
+      ? `${numHeight}px` 
+      : (heightAttrMatch ? heightAttrMatch[1] : "450px");
+
+    return (
+      <div
+        className="overflow-hidden rounded-lg"
+        style={{ 
+          width: styleWidth, 
+          height: styleHeight, 
+          maxWidth: "100%"
+        }}
+      >
+        <iframe {...iframeProps} />
+      </div>
+    );
+  }
+}
 
 function getDifyFileType(file: File): string {
   const extension = file.name.split(".").pop()?.toLowerCase();
@@ -96,8 +178,10 @@ export default function ChatComponent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const hasInitializedRef = useRef(false);
+  const processedIframeMessagesRef = useRef<Set<string>>(new Set());
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Example conversation history for the sidebar
   const conversationHistory = [
     { id: 1, title: "City Services Information", date: "2 days ago" },
     { id: 2, title: "Trash Collection Schedule", date: "1 week ago" },
@@ -181,7 +265,6 @@ export default function ChatComponent() {
         return null;
       }
 
-      console.log(`Upload successful for ${file.name}:`, result);
       const difyType = getDifyFileType(file);
       return {
         id: result.id,
@@ -225,11 +308,6 @@ export default function ChatComponent() {
         if (filesToSend && filesToSend.length > 0) {
           requestBody.files = filesToSend;
         }
-
-        console.log(
-          "Frontend: Sending request to backend with body:",
-          JSON.stringify(requestBody, null, 2)
-        );
 
         const response = await fetch(INTERNAL_API_URL, {
           method: "POST",
@@ -344,7 +422,6 @@ export default function ChatComponent() {
                         )
                       );
                     }
-                    // Add handling for other events like 'workflow_started', 'tts_message' if needed
                   }
                 } catch (e) {
                   console.error(
@@ -353,15 +430,13 @@ export default function ChatComponent() {
                     "Raw line content:",
                     line.substring(5)
                   );
-                  // Decide how to handle parsing errors, maybe ignore the line?
                 }
               }
-              boundary = buffer.indexOf("\n"); // Check for next line in buffer
+              boundary = buffer.indexOf("\n");
             }
           }
         } catch (streamError) {
           console.error("Error processing stream:", streamError);
-          // Update placeholder with error
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId
@@ -370,11 +445,9 @@ export default function ChatComponent() {
             )
           );
         }
-        // No need to process leftover buffer here, as the loop handles complete lines
       } catch (error: any) {
         console.error("sendMessageToBackend Error:", error);
         const errorMsgId = generateMessageId();
-        // Add error message separately
         setMessages((prev) => [
           ...prev,
           {
@@ -392,7 +465,9 @@ export default function ChatComponent() {
   );
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      
       const promptParam = searchParams.get("prompt");
       let currentUserId = userId;
       if (!currentUserId) {
@@ -400,37 +475,24 @@ export default function ChatComponent() {
         setUserId(currentUserId);
       }
 
-      if (promptParam && messages.length === 0) {
-        const initialUserMessage: Message = {
-          role: "user",
-          content: promptParam,
-          timestamp: new Date(),
-          id: generateMessageId(),
-        };
-        const assistantReplyMessage: Message = {
-          role: "assistant",
-          content:
-            "Hello! How can I assist you with Indianapolis city services today?",
-          timestamp: new Date(),
-          id: generateMessageId(),
-        };
-        setMessages([initialUserMessage, assistantReplyMessage]);
-        sendMessageToBackend(promptParam, currentUserId, []).catch((err) =>
-          console.error("Initial prompt send failed:", err)
-        );
-      } else if (messages.length === 0) {
-        setMessages([
-          {
-            role: "assistant",
-            content:
-              "Hello! How can I help you with Indianapolis city information today?",
+      if (messages.length === 0) {
+        if (promptParam) {
+          const initialUserMessage: Message = {
+            role: "user",
+            content: promptParam,
             timestamp: new Date(),
             id: generateMessageId(),
-          },
-        ]);
+          };
+          
+          setMessages([initialUserMessage]);
+          
+          sendMessageToBackend(promptParam, currentUserId, []).catch((err) =>
+            console.error("Initial prompt send failed:", err)
+          );
+        }
       }
     }
-  }, [searchParams, messages.length, userId, sendMessageToBackend]);
+  }, [searchParams, userId, sendMessageToBackend]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -489,15 +551,6 @@ export default function ChatComponent() {
   );
 
   const startNewChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Hello! How can I help you with Indianapolis city information today?",
-        timestamp: new Date(),
-        id: generateMessageId(),
-      },
-    ]);
     setConversationId(null);
     setSidebarOpen(false);
   };
@@ -507,6 +560,65 @@ export default function ChatComponent() {
     visible: { opacity: 1, y: 0 },
     exit: { opacity: 0, height: 0 },
   };
+
+  // Process messages to extract iframes and create separate iframe messages
+  const processedMessages = useMemo(() => {
+    const result: Message[] = [];
+    
+    messages.forEach((message) => {
+      if (message.role === "assistant" && !processedIframeMessagesRef.current.has(message.id)) {
+        const { iframes, textSegments } = extractIframes(message.content);
+
+        if (iframes.length > 0) {
+          // This message contains iframes and needs special processing.
+          // Mark the original message ID as processed ONLY if we are splitting it.
+          processedIframeMessagesRef.current.add(message.id);
+
+          const textOnlyContent = textSegments.join('\n\n').trim();
+          // Only push the text part if it actually has content.
+          if (textOnlyContent) {
+            result.push({
+              ...message, // Use original timestamp and potentially other fields
+              content: textOnlyContent,
+              // id remains original message.id for this text part
+            });
+          }
+
+          // Create a separate message for each iframe.
+          iframes.forEach((iframe, i) => {
+            result.push({
+              role: "assistant",
+              content: iframe,
+              // Ensure timestamp is slightly offset to maintain order if needed, and generate a new unique ID.
+              timestamp: new Date(message.timestamp.getTime() + (i + 1) * 10), 
+              id: `${message.id}-iframe-${i}` 
+            });
+          });
+        } else {
+          // No iframes in this assistant message, push it as is.
+          // No need to add to processedIframeMessagesRef as there's nothing to split.
+          result.push(message);
+        }
+      } else {
+        // User messages or assistant messages whose iframes have already been extracted.
+        // Or, if it's an assistant message that *was* the text-only part from a previous split.
+        result.push(message);
+      }
+    });
+    
+    return result;
+  }, [messages]);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's 'md' breakpoint
+    };
+    if (typeof window !== "undefined") {
+      checkScreenSize(); // Initial check
+      window.addEventListener("resize", checkScreenSize);
+      return () => window.removeEventListener("resize", checkScreenSize);
+    }
+  }, []);
 
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
@@ -594,7 +706,7 @@ export default function ChatComponent() {
         {/* Messages container */}
         <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 md:px-8">
           <div className="max-w-3xl mx-auto space-y-6 pt-16 md:pt-12">
-            {messages.map((message) => (
+            {processedMessages.map((message) => (
               <motion.div
                 key={message.id}
                 variants={messageVariants}
@@ -616,79 +728,85 @@ export default function ChatComponent() {
                       />
                     </div>
                     <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({
-                            href,
-                            children,
-                            ...props
-                          }: React.HTMLProps<HTMLAnchorElement>) => (
-                            <a
-                              href={href}
-                              {...props}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-secondary hover:underline">
-                              {children}
-                            </a>
-                          ),
-                          p: ({
-                            children,
-                          }: React.HTMLProps<HTMLParagraphElement>) => (
-                            <p className="mb-3 last:mb-0">{children}</p>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className="list-decimal list-inside my-3 ml-2">
-                              {children}
-                            </ol>
-                          ),
-                          ul: ({ children }) => (
-                            <ul className="list-disc list-inside my-3 ml-2">
-                              {children}
-                            </ul>
-                          ),
-                          li: ({
-                            children,
-                          }: React.HTMLProps<HTMLLIElement>) => (
-                            <li className="mb-1">{children}</li>
-                          ),
-                          code: ({
-                            inline,
-                            className,
-                            children,
-                            ...props
-                          }: React.HTMLProps<HTMLElement> & {
-                            inline?: boolean;
-                          }) => {
-                            const match = /language-(\w+)/.exec(
-                              className || ""
-                            );
-                            const language = match?.[1];
-                            return !inline ? (
-                              <pre
-                                className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
-                                  language || "none"
-                                }`}>
+                      {message.id.includes('-iframe-') ? (
+                        // This is an iframe message
+                        createSafeIframe(message.content, isMobile)
+                      ) : (
+                        // This is a regular message
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({
+                              href,
+                              children,
+                              ...props
+                            }: React.HTMLProps<HTMLAnchorElement>) => (
+                              <a
+                                href={href}
+                                {...props}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-secondary hover:underline">
+                                {children}
+                              </a>
+                            ),
+                            p: ({
+                              children,
+                            }: React.HTMLProps<HTMLParagraphElement>) => (
+                              <p className="mb-3 last:mb-0">{children}</p>
+                            ),
+                            ol: ({ children }) => (
+                              <ol className="list-decimal list-inside my-3 ml-2">
+                                {children}
+                              </ol>
+                            ),
+                            ul: ({ children }) => (
+                              <ul className="list-disc list-inside my-3 ml-2">
+                                {children}
+                              </ul>
+                            ),
+                            li: ({
+                              children,
+                            }: React.HTMLProps<HTMLLIElement>) => (
+                              <li className="mb-1">{children}</li>
+                            ),
+                            code: ({
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }: React.HTMLProps<HTMLElement> & {
+                              inline?: boolean;
+                            }) => {
+                              const match = /language-(\w+)/.exec(
+                                className || ""
+                              );
+                              const language = match?.[1];
+                              return !inline ? (
+                                <pre
+                                  className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
+                                    language || "none"
+                                  }`}>
+                                  <code
+                                    className={`block text-primary text-sm font-mono whitespace-pre`}
+                                    {...props}>
+                                    {children}
+                                  </code>
+                                </pre>
+                              ) : (
                                 <code
-                                  className={`block text-primary text-sm font-mono whitespace-pre`}
+                                  className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
+                                    className || ""
+                                  }`}
                                   {...props}>
                                   {children}
                                 </code>
-                              </pre>
-                            ) : (
-                              <code
-                                className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
-                                  className || ""
-                                }`}
-                                {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}>
-                        {message.content}
-                      </ReactMarkdown>
+                              );
+                            },
+                          }}>
+                          {message.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 )}
