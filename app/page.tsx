@@ -1,21 +1,31 @@
-import ChatInterface from '@/components/ChatInterface';
+"use client";
 
-export default function Home() {
-  return (
-    <main className="min-h-screen bg-primary py-4 lg:py-8 px-2 lg:px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="hidden lg:block text-center mb-4 lg:mb-8">
-          <h1 className="text-3xl lg:text-4xl font-cal text-accent mb-2 lg:mb-4">
-            IndyChat
-          </h1>
-          <p className="text-accent/80 font-mont text-sm lg:text-base">
-            Your AI Assistant for Indianapolis
-          </p>
-        </div>
-        <div className="relative pt-16 lg:pt-0">
-          <ChatInterface />
-        </div>
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
+import { Loader2 } from "lucide-react";
+
+const ChatComponent = dynamic(
+  () => import('../components/ChatComponent'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6 overflow-hidden">
+        <Loader2 className="h-8 w-8 animate-spin text-secondary" />
       </div>
-    </main>
+    )
+  }
+);
+
+export default function ChatPage() {
+  return (
+    <div className="min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden">
+      <Suspense fallback={
+        <div className="h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6 overflow-hidden">
+          <Loader2 className="h-8 w-8 animate-spin text-secondary" />
+        </div>
+      }>
+        <ChatComponent />
+      </Suspense>
+    </div>
   );
-}
+} 

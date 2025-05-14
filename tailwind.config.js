@@ -11,6 +11,7 @@ module.exports = {
         primary: '#EEEEEE',
         secondary: '#ed1c24',
         accent: '#14284b',
+        'accent-light': '#243b5f',
       },
       fontFamily: {
         cal: ['Cal-Sans', 'sans-serif'],
