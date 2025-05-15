@@ -18,149 +18,12 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
+import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
+import { sendMessageToBackend } from "@/functions/messageUtils";
+import { uploadFile, getDifyFileType } from "@/functions/uploadUtils";
+import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
 
-const INTERNAL_API_URL = "/api/chat";
 const UPLOAD_API_URL = "/api/upload";
-
-type UploadedFile = {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  fileObject?: File;
-};
-
-type DifyFileParam = {
-  type: string;
-  transfer_method: "local_file";
-  upload_file_id: string;
-};
-
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  id: string;
-  attachedFiles?: UploadedFile[];
-};
-
-function extractIframes(content: string): { iframes: string[], textSegments: string[] } {
-  const iframeRegex = /<iframe[^>]*>[\s\S]*?<\/iframe>/gi;
-  const textSegments: string[] = [];
-  const iframes: string[] = [];
-  
-  let lastIndex = 0;
-  let match;
-  
-  while ((match = iframeRegex.exec(content)) !== null) {
-    const textBefore = content.substring(lastIndex, match.index).trim();
-    if (textBefore) textSegments.push(textBefore);
-    
-    iframes.push(match[0]);
-    
-    lastIndex = match.index + match[0].length;
-  }
-  
-  const textAfter = content.substring(lastIndex).trim();
-  if (textAfter) textSegments.push(textAfter);
-  
-  if (iframes.length === 0) {
-    textSegments.push(content);
-  }
-  
-  return { iframes, textSegments };
-}
-
-function createSafeIframe(iframeHtml: string, isMobile: boolean): React.ReactElement {
-  const srcMatch = iframeHtml.match(/src=["\'](.*?)["\']/i);
-  const src = srcMatch ? srcMatch[1] : "";
-
-  const widthAttrMatch = iframeHtml.match(/width=["\'](.*?)["\']/i);
-  const heightAttrMatch = iframeHtml.match(/height=["\'](.*?)["\']/i);
-
-  const numWidth = widthAttrMatch ? parseInt(widthAttrMatch[1], 10) : NaN;
-  const numHeight = heightAttrMatch ? parseInt(heightAttrMatch[1], 10) : NaN;
-
-  const iframeProps = {
-    src: src,
-    className: "w-full h-full border-none",
-    sandbox: "allow-scripts allow-same-origin allow-forms",
-    loading: "lazy" as "lazy", 
-    title: "Embedded content", 
-    referrerPolicy: "no-referrer" as "no-referrer", 
-    allowFullScreen: true,
-  };
-
-  if (isMobile) {
-    let aspectRatioClass = "aspect-w-4 aspect-h-3"; // Default for mobile
-    if (!isNaN(numWidth) && !isNaN(numHeight) && numHeight > 0) {
-        const ratio = numWidth / numHeight;
-        if (Math.abs(ratio - (16/9)) < 0.01) { // Use a smaller tolerance for precision
-          aspectRatioClass = "aspect-w-16 aspect-h-9";
-        } else if (Math.abs(ratio - (4/3)) < 0.01) {
-          aspectRatioClass = "aspect-w-4 aspect-h-3";
-        }
-        // Add other common ratios if needed, e.g., 1:1, 3:2
-    }
-    return (
-      <div className={`w-full ${aspectRatioClass} rounded-lg overflow-hidden`}>
-        <iframe {...iframeProps} />
-      </div>
-    );
-  } else { // Desktop
-    const styleWidth = !isNaN(numWidth) 
-      ? `${numWidth}px` 
-      : (widthAttrMatch ? widthAttrMatch[1] : "600px");
-    const styleHeight = !isNaN(numHeight) 
-      ? `${numHeight}px` 
-      : (heightAttrMatch ? heightAttrMatch[1] : "450px");
-
-    return (
-      <div
-        className="overflow-hidden rounded-lg"
-        style={{ 
-          width: styleWidth, 
-          height: styleHeight, 
-          maxWidth: "100%"
-        }}
-      >
-        <iframe {...iframeProps} />
-      </div>
-    );
-  }
-}
-
-function getDifyFileType(file: File): string {
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  const mimeType = file.type;
-
-  if (mimeType.startsWith("image/")) return "image";
-  if (
-    [
-      "pdf",
-      "txt",
-      "md",
-      "markdown",
-      "html",
-      "xlsx",
-      "xls",
-      "docx",
-      "csv",
-      "eml",
-      "msg",
-      "pptx",
-      "ppt",
-      "xml",
-      "epub",
-    ].includes(extension || "")
-  ) {
-    return "document";
-  }
-  if (mimeType.startsWith("audio/")) return "audio";
-  if (mimeType.startsWith("video/")) return "video";
-
-  return "document";
-}
 
 export default function ChatComponent() {
   const searchParams = useSearchParams();
@@ -241,228 +104,11 @@ export default function ChatComponent() {
     }
   };
 
-  const uploadFile = async (
-    file: File,
-    userIdToSend: string
-  ): Promise<UploadedFile | null> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("user", userIdToSend);
-
-    try {
-      const response = await fetch(UPLOAD_API_URL, {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error(`Upload failed for ${file.name}:`, result);
-        alert(
-          `Upload failed for ${file.name}: ${result.details || result.error}`
-        );
-        return null;
-      }
-
-      const difyType = getDifyFileType(file);
-      return {
-        id: result.id,
-        name: file.name,
-        size: file.size,
-        type: difyType,
-        fileObject: file,
-      };
-    } catch (error) {
-      console.error(`Error uploading ${file.name}:`, error);
-      alert(`Error uploading ${file.name}. Check console for details.`);
-      return null;
-    }
-  };
-
   const removeFile = (fileIdToRemove: string) => {
     setUploadedFiles((prev) =>
       prev.filter((file) => file.id !== fileIdToRemove)
     );
   };
-
-  const sendMessageToBackend = useCallback(
-    async (
-      userInput: string,
-      userIdToSend: string,
-      filesToSend: DifyFileParam[]
-    ) => {
-      let assistantMessageId = generateMessageId();
-      setIsLoading(true);
-      try {
-        const headers = {
-          "Content-Type": "application/json",
-        };
-        const requestBody: any = {
-          query: userInput,
-          user: userIdToSend,
-        };
-        if (conversationId) {
-          requestBody.conversation_id = conversationId;
-        }
-        if (filesToSend && filesToSend.length > 0) {
-          requestBody.files = filesToSend;
-        }
-
-        const response = await fetch(INTERNAL_API_URL, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          let errorData = {
-            error: `HTTP error! status: ${response.status}`,
-            details: "",
-          };
-          try {
-            const errorJson = await response.json();
-            errorData.error =
-              errorJson.error || `HTTP error! status: ${response.status}`;
-            errorData.details = errorJson.details || JSON.stringify(errorJson);
-          } catch (e) {
-            try {
-              errorData.details = await response.text();
-            } catch (textError) {
-              errorData.details = "Could not read error response body.";
-            }
-          }
-          console.error(
-            "sendMessageToBackend: Backend API returned an error:",
-            errorData
-          );
-          throw new Error(
-            errorData.error +
-              (errorData.details ? ` - ${errorData.details}` : "")
-          );
-        }
-        if (!response.body) {
-          throw new Error("ReadableStream not supported by backend response");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let conversationIdFound = false;
-        let buffer = "";
-        assistantMessageId = generateMessageId();
-        // Add placeholder message first
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "",
-            timestamp: new Date(),
-            id: assistantMessageId,
-          },
-        ]);
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            // Append new data to the buffer
-            buffer += decoder.decode(value, { stream: true });
-
-            // Process buffer line by line
-            let boundary = buffer.indexOf("\n");
-            while (boundary !== -1) {
-              const line = buffer.substring(0, boundary).trim();
-              buffer = buffer.substring(boundary + 1);
-
-              if (line.startsWith("data: ")) {
-                try {
-                  const jsonString = line.substring(5).trim(); // Get content after 'data: '
-                  if (jsonString) {
-                    // Avoid parsing empty strings
-                    const data = JSON.parse(jsonString);
-
-                    if (!conversationIdFound && data.conversation_id) {
-                      setConversationId(data.conversation_id);
-                      conversationIdFound = true;
-                    }
-
-                    // Handle different event types based on Dify's structure
-                    if (
-                      data.event === "agent_message" ||
-                      data.event === "message"
-                    ) {
-                      // 'message' seems more common for content
-                      const contentChunk = data.answer || ""; // Dify uses 'answer'
-                      if (contentChunk) {
-                        setMessages((prev) =>
-                          prev.map((msg) =>
-                            msg.id === assistantMessageId
-                              ? { ...msg, content: msg.content + contentChunk }
-                              : msg
-                          )
-                        );
-                      }
-                    } else if (data.event === "error") {
-                      console.error("Dify stream error event:", data);
-                      // Update the UI to show the specific error from Dify
-                      const errorMessage =
-                        data.message ||
-                        "Unknown error from API during response generation";
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? {
-                                ...msg,
-                                content:
-                                  msg.content +
-                                  `\n\n[API Error: ${errorMessage}]`,
-                              }
-                            : msg
-                        )
-                      );
-                    }
-                  }
-                } catch (e) {
-                  console.error(
-                    "Error parsing SSE JSON:",
-                    e,
-                    "Raw line content:",
-                    line.substring(5)
-                  );
-                }
-              }
-              boundary = buffer.indexOf("\n");
-            }
-          }
-        } catch (streamError) {
-          console.error("Error processing stream:", streamError);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: "\n\nError receiving response stream." }
-                : msg
-            )
-          );
-        }
-      } catch (error: any) {
-        console.error("sendMessageToBackend Error:", error);
-        const errorMsgId = generateMessageId();
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Error: ${error.message || "Could not connect."}`,
-            timestamp: new Date(),
-            id: errorMsgId,
-          },
-        ]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [conversationId, setIsLoading, setMessages]
-  );
 
   useEffect(() => {
     if (typeof window !== "undefined" && !hasInitializedRef.current) {
@@ -486,13 +132,20 @@ export default function ChatComponent() {
           
           setMessages([initialUserMessage]);
           
-          sendMessageToBackend(promptParam, currentUserId, []).catch((err) =>
-            console.error("Initial prompt send failed:", err)
-          );
+          sendMessageToBackend(
+            promptParam, 
+            currentUserId, 
+            [], 
+            conversationId,
+            generateMessageId,
+            setMessages,
+            setIsLoading,
+            setConversationId
+          ).catch((err) => console.error("Initial prompt send failed:", err));
         }
       }
     }
-  }, [searchParams, userId, sendMessageToBackend]);
+  }, [searchParams, userId, conversationId]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -542,12 +195,21 @@ export default function ChatComponent() {
       setUploadedFiles([]);
 
       try {
-        await sendMessageToBackend(trimmedInput, userIdToSend, filesToSubmit);
+        await sendMessageToBackend(
+          trimmedInput, 
+          userIdToSend, 
+          filesToSubmit,
+          conversationId,
+          generateMessageId,
+          setMessages,
+          setIsLoading,
+          setConversationId
+        );
       } catch (error) {
         console.error("handleSubmit Error:", error);
       }
     },
-    [input, isLoading, sendMessageToBackend, userId, uploadedFiles]
+    [input, isLoading, userId, uploadedFiles, conversationId]
   );
 
   const startNewChat = () => {
