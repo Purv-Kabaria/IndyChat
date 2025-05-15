@@ -28,10 +28,12 @@ export default function SignupPage() {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
-      console.log("Environment check:", {
-        hasSupabaseUrl: !!supabaseUrl,
-        hasSupabaseKey: !!supabaseKey,
-      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Environment check:", {
+          hasSupabaseUrl: !!supabaseUrl,
+          hasSupabaseKey: !!supabaseKey,
+        });
+      }
       
       if (!supabaseUrl || !supabaseKey) {
         setEnvStatus("Warning: Supabase environment variables are missing");
