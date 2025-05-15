@@ -2,8 +2,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-// This is needed to properly handle cookies in Next.js 13+
+// These flags are needed to properly handle cookies in Next.js 13+
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -26,8 +27,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Initialize Supabase client using the async cookies approach
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ 
-      cookies
+      cookies: () => cookieStore
     });
     
     // If code exists, exchange it for a session
