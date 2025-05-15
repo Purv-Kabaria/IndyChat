@@ -240,7 +240,7 @@ export default function SignupPage() {
     try {
       // Get the redirect URL, adding it as a parameter to the callback
       const redirectTo = getRedirectUrl();
-      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      const callbackUrl = new URL(`${window.location.origin}/api/auth/callback`);// Path to match actual route at app/api/auth/callback
       callbackUrl.searchParams.set('redirectTo', redirectTo);
       
       console.log("Google OAuth request with redirect to:", callbackUrl.toString());

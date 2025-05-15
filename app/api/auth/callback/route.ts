@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     if (session.user.email && !session.user.email_confirmed_at) {
       console.log('Email not verified - redirecting to verification page');
       return NextResponse.redirect(
-        new URL(`/verify?email=${encodeURIComponent(session.user.email)}`, request.url)
+        new URL(`/verify?email=${encodeURIComponent(session.user.email)}&redirectTo=${encodeURIComponent(redirectTo)}`, request.url)
       );
     }
     
@@ -69,4 +69,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

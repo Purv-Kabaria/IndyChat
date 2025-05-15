@@ -22,6 +22,7 @@ import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile, getDifyFileType } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
+import SignOutButton from "./SignOutButton";
 
 const UPLOAD_API_URL = "/api/upload";
 
@@ -356,10 +357,13 @@ export default function ChatComponent() {
             <Settings className="h-4 w-4" />
             <span>Settings</span>
           </button>
-          <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
-            <LogOut className="h-4 w-4" />
-            <span>Sign out</span>
-          </button>
+          <div className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors">
+            <SignOutButton 
+              variant="minimal"
+              redirectTo="/"
+              className="w-full flex items-center gap-2 text-primary hover:text-primary"
+            />
+          </div>
         </div>
       </div>
 
