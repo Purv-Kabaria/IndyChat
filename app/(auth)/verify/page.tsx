@@ -10,12 +10,47 @@ export default function VerifyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const redirectTo = searchParams.get("redirectTo") || "/chat";
   
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+
+  // Check if user is already authenticated and if their email is verified
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error checking session:", error);
+          setError("Error verifying authentication status");
+        } else if (data?.session) {
+          // If user has a session, check if email is verified
+          if (data.session.user.email_confirmed_at) {
+            console.log("Email already verified, redirecting...");
+            setEmailVerified(true);
+            setMessage("Your email is already verified! Redirecting...");
+            
+            // Redirect after a short delay
+            setTimeout(() => {
+              router.push(redirectTo);
+            }, 2000);
+          }
+        }
+      } catch (err) {
+        console.error("Unexpected error during session check:", err);
+      } finally {
+        setSessionChecking(false);
+      }
+    };
+    
+    checkSession();
+  }, [router, redirectTo]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +58,11 @@ export default function VerifyPage() {
     setError(null);
 
     try {
+      // First, check if the OTP format seems valid to provide better error messages
+      if (otp.length < 6) {
+        throw new Error("Please enter a valid verification code (at least 6 characters)");
+      }
+      
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
@@ -31,15 +71,36 @@ export default function VerifyPage() {
 
       if (error) throw error;
       
-      setMessage("Email verified successfully!");
+      setEmailVerified(true);
+      setMessage("Email verified successfully! Redirecting...");
+      
+      // Try to get session after verification
+      const { data: sessionData } = await supabase.auth.getSession();
       
       // Redirect after successful verification
       setTimeout(() => {
-        router.push("/login?message=Account verified successfully. You can now log in.");
+        // If we have an active session, redirect directly to the app
+        if (sessionData?.session) {
+          router.push(redirectTo);
+        } else {
+          // If no session, redirect to login with a success message
+          router.push(`/login?message=${encodeURIComponent("Account verified successfully. You can now log in.")}`);
+        }
       }, 2000);
       
     } catch (error: any) {
-      setError(error.message || "Invalid or expired code. Please try again.");
+      console.error("Verification error:", error);
+      
+      // Provide more helpful error messages based on the error
+      let errorMessage = error.message || "Invalid or expired code. Please try again.";
+      
+      if (errorMessage.includes("expired")) {
+        errorMessage = "Your verification code has expired. Please request a new one.";
+      } else if (errorMessage.includes("incorrect") || errorMessage.includes("invalid")) {
+        errorMessage = "Invalid verification code. Please check and try again.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -69,6 +130,18 @@ export default function VerifyPage() {
       setResending(false);
     }
   };
+
+  // Show loading while we check session
+  if (sessionChecking) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="text-sm text-gray-500">Checking verification status...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">

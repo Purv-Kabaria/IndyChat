@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -16,11 +16,82 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [envStatus, setEnvStatus] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  // Verify environment variables and Supabase client on component mount
+  // Also check session status to handle already authenticated users
+  useEffect(() => {
+    const checkSupabaseConfig = async () => {
+      // Check if Supabase environment variables are set
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      console.log("Environment check:", {
+        hasSupabaseUrl: !!supabaseUrl,
+        hasSupabaseKey: !!supabaseKey,
+      });
+      
+      if (!supabaseUrl || !supabaseKey) {
+        setEnvStatus("Warning: Supabase environment variables are missing");
+        setSessionChecked(true);
+        return;
+      }
+      
+      // Verify Supabase client is working and check user session
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Supabase client initialization error:", error);
+          setEnvStatus("Error connecting to Supabase");
+        } else {
+          console.log("Supabase client initialized successfully");
+          
+          // If user is already authenticated, redirect them appropriately
+          if (data.session) {
+            console.log("User already has an active session");
+            
+            // If email is not verified, redirect to verification page
+            if (data.session.user.email && !data.session.user.email_confirmed_at) {
+              console.log("User email not verified, redirecting to verification page");
+              router.push(`/verify?email=${encodeURIComponent(data.session.user.email)}`);
+              return;
+            }
+            
+            // If user is fully authenticated, redirect to chat
+            console.log("User is authenticated, redirecting to chat");
+            router.push("/chat");
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Unexpected error during Supabase client check:", err);
+        setEnvStatus("Unexpected error checking Supabase connection");
+      }
+      
+      setSessionChecked(true);
+    };
+    
+    checkSupabaseConfig();
+  }, [router]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    
+    console.log("Starting signup process...");
+    
+    // Check environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Supabase environment variables are missing");
+      setError("Configuration error. Please contact support.");
+      setLoading(false);
+      return;
+    }
 
     // Validation
     if (password !== confirmPassword) {
@@ -35,7 +106,19 @@ export default function SignupPage() {
       return;
     }
 
+    console.log("Form data validated, proceeding with signup...");
+
     try {
+      // Log signup payload (without sensitive data)
+      console.log("Signup request:", {
+        email,
+        hasPassword: !!password,
+        userData: {
+          first_name: firstName,
+          last_name: lastName,
+        }
+      });
+      
       // Sign up with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -48,36 +131,160 @@ export default function SignupPage() {
         },
       });
 
+      // Log response (but not sensitive data)
+      console.log("Signup response:", {
+        success: !error,
+        hasData: !!data,
+        hasUser: data?.user ? true : false,
+        hasSession: data?.session ? true : false,
+        emailConfirmed: data?.user?.email_confirmed_at ? true : false,
+        identities: data?.user?.identities?.length,
+        createdAt: data?.user?.created_at,
+        error: error ? {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        } : null
+      });
+
       if (error) throw error;
       
-      // Redirect to verification page with email
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
+      // Check if the user has already confirmed their email
+      if (data?.user?.email_confirmed_at) {
+        console.log("Email already verified, redirecting to dashboard...");
+        setSuccessMessage("Account created successfully! Redirecting to dashboard...");
+        
+        setTimeout(() => {
+          router.push("/chat");
+        }, 2000);
+        return;
+      }
+      
+      // Check if Supabase returned confirmation details
+      console.log("User registration status:", {
+        confirmationSent: data?.user?.confirmation_sent_at ? true : false,
+        identitiesLength: data?.user?.identities?.length || 0
+      });
+      
+      console.log("Signup successful, redirecting to verification page...");
+      setSuccessMessage("Account created! Please check your email for verification instructions.");
+      
+      // Check if the verification email was sent
+      if (data?.user?.confirmation_sent_at) {
+        console.log("Verification email sent at:", data.user.confirmation_sent_at);
+      } else {
+        console.warn("No confirmation_sent_at timestamp in response");
+      }
+      
+      // Use setTimeout to show the success message before redirecting
+      setTimeout(() => {
+        // Redirect to verification page with email
+        router.push(`/verify?email=${encodeURIComponent(email)}`);
+      }, 2000);
     } catch (error: any) {
-      setError(error.message || "An error occurred during signup");
+      console.error("Signup error:", error);
+      
+      // Enhanced error reporting
+      let errorMessage = "An error occurred during signup";
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (error.status) {
+        errorMessage += ` (Status: ${error.status})`;
+      }
+      
+      // Check for specific error types and provide more helpful messages
+      if (error.message?.includes("already registered")) {
+        errorMessage = "This email is already registered. Please try logging in instead.";
+        
+        // Offer option to navigate to login
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } else if (error.message?.includes("network")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message?.includes("email verification")) {
+        errorMessage = "There was an issue sending the verification email. Please try again or contact support.";
+      } else if (error.message?.includes("rate limit")) {
+        errorMessage = "Too many signup attempts. Please try again later.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to get the redirectTo URL with fallback
+  const getRedirectUrl = (defaultPath = '/chat') => {
+    // Check URL parameters for a redirectTo
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectParam = urlParams.get('redirectTo');
+    
+    // Ensure the redirect is to a relative URL to prevent open redirect vulnerabilities
+    if (redirectParam && !redirectParam.startsWith('http')) {
+      return redirectParam;
+    }
+    
+    return defaultPath;
   };
 
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError(null);
     
+    console.log("Starting Google sign in process...");
+    
     try {
+      // Get the redirect URL, adding it as a parameter to the callback
+      const redirectTo = getRedirectUrl();
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      callbackUrl.searchParams.set('redirectTo', redirectTo);
+      
+      console.log("Google OAuth request with redirect to:", callbackUrl.toString());
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl.toString(),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         },
+      });
+
+      console.log("Google OAuth response:", {
+        success: !error,
+        hasData: !!data,
+        error: error ? {
+          message: error.message,
+          status: error.status
+        } : null
       });
 
       if (error) throw error;
     } catch (error: any) {
+      console.error("Google sign in error:", error);
       setError(error.message || "An error occurred with Google sign in");
       setLoading(false);
     }
   };
 
+  // Don't render the form until the session check is complete
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="text-sm text-gray-500">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
@@ -86,6 +293,12 @@ export default function SignupPage() {
           <p className="text-sm text-gray-500 mt-2">Create your account</p>
         </div>
 
+        {envStatus && (
+          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm">
+            <strong>Debug:</strong> {envStatus}
+          </div>
+        )}
+        
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
             {error}
