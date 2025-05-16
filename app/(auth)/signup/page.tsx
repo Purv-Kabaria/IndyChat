@@ -202,7 +202,7 @@ export default function SignupPage() {
         // Offer option to navigate to login
         setTimeout(() => {
           router.push("/login");
-        }, 3000);
+        }, 5000);
       } else if (error.message?.includes("network")) {
         errorMessage = "Network error. Please check your internet connection and try again.";
       } else if (error.message?.includes("email verification")) {
