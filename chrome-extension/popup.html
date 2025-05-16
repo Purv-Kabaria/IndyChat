@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome Extension Popup</title>
+    <style>
+        body {
+            width: 600px;
+            height: 700px;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+        
+        .controls {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .status {
+            font-size: 12px;
+            height: 16px;
+            margin-bottom: 8px;
+            color: #666;
+        }
+        
+        .chat-container {
+            flex-grow: 1;
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+        
+        .chat-header {
+            padding: 12px;
+            background-color: #4285f4;
+            color: white;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .messages-container {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        #refresh-chat {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        #refresh-chat:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            align-self: flex-end;
+            background-color: #4285f4;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .bot-message {
+            align-self: flex-start;
+            background-color: #f1f1f1;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message-time {
+            font-size: 10px;
+            color: #888;
+            text-align: right;
+            margin-top: 4px;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+        
+        #message-input {
+            flex-grow: 1;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        #message-input:focus {
+            border-color: #4285f4;
+        }
+        
+        .input-group {
+            display: flex;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .input-group input[type="text"] {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #3367d6;
+        }
+        
+        #send-button {
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        
+        .file-upload {
+            margin-bottom: 8px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.3s ease-out;
+        }
+        
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            padding: 10px 14px;
+            background-color: #f1f1f1;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            align-self: flex-start;
+            margin-top: 8px;
+            width: fit-content;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background-color: #999;
+            border-radius: 50%;
+            display: inline-block;
+            opacity: 0.6;
+        }
+        
+        .typing-dot:nth-child(1) {
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation: typing 1.4s infinite 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation: typing 1.4s infinite 0.4s;
+        }
+        
+        @keyframes typing {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls"> 
+            <button id="openApp">Open App</button>
+            <span id="status" class="status"></span>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="header-content">
+                    <span>IndyChat Assistant</span>
+                    <button id="refresh-chat" title="Refresh Chat">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M23 4V10H17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M1 20V14H7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3.51 9.00001C4.01717 7.56552 4.87913 6.2899 6.01547 5.27531C7.1518 4.26072 8.52547 3.53436 10.0083 3.16426C11.4911 2.79417 13.0348 2.79271 14.5185 3.16033C16.0022 3.52794 17.3777 4.25204 18.516 5.26501L23 10M1 14L5.484 18.735C6.62235 19.748 7.99787 20.4721 9.48157 20.8397C10.9653 21.2073 12.5089 21.2058 13.9917 20.8357C15.4745 20.4657 16.8482 19.7393 17.9845 18.7247C19.1209 17.7101 19.9828 16.4345 20.49 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="messages-container" class="messages-container">
+                <!-- Messages will be inserted here via JavaScript -->
+                <div class="bot-message message">
+                    Hello! I'm your IndyChat assistant. How can I help you today?
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+                <button id="send-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+            </div>
+            <div id="loading" class="hidden">
+                <div class="loader"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
+
