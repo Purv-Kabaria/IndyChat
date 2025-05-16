@@ -390,11 +390,9 @@ export default function ChatComponent() {
                       />
                     </div>
                     <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent">
-                      {message.id.includes('-iframe-') ? (
-                        // This is an iframe message
+                      {message.content.includes('<iframe') && message.id.includes('-iframe-') ? (
                         createSafeIframe(message.content, isMobile)
                       ) : (
-                        // This is a regular message
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
