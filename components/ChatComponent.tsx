@@ -22,7 +22,7 @@ import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile, getDifyFileType } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
-
+import Link from "next/link";
 const UPLOAD_API_URL = "/api/upload";
 
 export default function ChatComponent() {
@@ -352,10 +352,12 @@ export default function ChatComponent() {
         </div>
 
         <div className="p-3 border-t border-primary/10 space-y-1">
-          <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span>Settings</span>
-          </button>
+          <Link href="/profile">
+            <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </button>
+          </Link>
           <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
             <LogOut className="h-4 w-4" />
             <span>Sign out</span>
