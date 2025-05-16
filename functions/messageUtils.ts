@@ -119,16 +119,57 @@ export async function sendMessageToBackend(
 
                 // Handle different event types based on Dify's structure
                 if (data.event === "agent_message" || data.event === "message") {
-                  // 'message' seems more common for content
-                  const contentChunk = data.answer || ""; // Dify uses 'answer'
+                  // Extract the actual content from the response
+                  let contentChunk = "";
+                  
+                  // Check if this is a JSON format with action_input
+                  if (data.answer && typeof data.answer === 'string') {
+                    try {
+                      // Try to parse it as JSON
+                      const answerObj = JSON.parse(data.answer);
+                      // If it has action_input, use that as the content
+                      if (answerObj.action_input) {
+                        contentChunk = answerObj.action_input;
+                      } else {
+                        // Otherwise use the answer as-is
+                        contentChunk = data.answer;
+                      }
+                    } catch (e) {
+                      // If it's not valid JSON, just use the answer directly
+                      contentChunk = data.answer;
+                    }
+                  } else {
+                    contentChunk = data.answer || "";
+                  }
+                  
                   if (contentChunk) {
-                    setMessages((prev) =>
-                      prev.map((msg) =>
+                    setMessages((prev) => {
+                      // Get the current message
+                      const currentMsg = prev.find(msg => msg.id === assistantMessageId);
+                      
+                      // If this is the first chunk and it looks like JSON, try to extract action_input
+                      if (currentMsg && currentMsg.content === "" && contentChunk.trim().startsWith("{")) {
+                        try {
+                          const jsonContent = JSON.parse(contentChunk);
+                          if (jsonContent.action_input) {
+                            return prev.map(msg => 
+                              msg.id === assistantMessageId
+                                ? { ...msg, content: jsonContent.action_input }
+                                : msg
+                            );
+                          }
+                        } catch (e) {
+                          // Not valid JSON or doesn't have action_input, continue normally
+                        }
+                      }
+                      
+                      // Regular update for streaming chunks
+                      return prev.map(msg =>
                         msg.id === assistantMessageId
                           ? { ...msg, content: msg.content + contentChunk }
                           : msg
-                      )
-                    );
+                      );
+                    });
                   }
                 } else if (data.event === "error") {
                   console.error("Dify stream error event:", data);
@@ -160,6 +201,27 @@ export async function sendMessageToBackend(
           boundary = buffer.indexOf("\n");
         }
       }
+      
+      // Final check to clean up any JSON formatting in the complete message
+      setMessages((prev) => {
+        const currentMsg = prev.find(msg => msg.id === assistantMessageId);
+        if (currentMsg && currentMsg.content.trim().startsWith("{")) {
+          try {
+            const jsonContent = JSON.parse(currentMsg.content);
+            if (jsonContent.action_input) {
+              return prev.map(msg => 
+                msg.id === assistantMessageId
+                  ? { ...msg, content: jsonContent.action_input }
+                  : msg
+              );
+            }
+          } catch (e) {
+            // Not valid JSON or doesn't have action_input, leave as is
+          }
+        }
+        return prev;
+      });
+      
     } catch (streamError) {
       console.error("Error processing stream:", streamError);
       setMessages((prev) =>

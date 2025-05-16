@@ -2,41 +2,27 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-  const supabase = createMiddlewareClient({ req: request, res: response });
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
   
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  // Check if the user is authenticated
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/(auth)') || 
-                     request.nextUrl.pathname.startsWith('/auth/');
+  // Create a Supabase client with the request and response
+  const supabase = createMiddlewareClient({ req, res });
   
-  // If accessing a protected route without session, redirect to login
-  if (!session && request.nextUrl.pathname.startsWith('/chat')) {
-    const redirectUrl = new URL('/login', request.url);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // If already logged in and trying to access auth pages, redirect to chat
-  if (session && isAuthRoute) {
-    const redirectUrl = new URL('/chat', request.url);
-    return NextResponse.redirect(redirectUrl);
-  }
+  // Refresh session if expired - required for Server Components
+  // This will set the auth cookie if it's valid
+  await supabase.auth.getSession();
   
-  return response;
+  return res;
 }
 
-// Specify which routes this middleware should run on
 export const config = {
   matcher: [
-    '/chat/:path*',
-    '/login',
-    '/signup',
-    '/reset-password',
-    '/verify',
-    '/auth/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

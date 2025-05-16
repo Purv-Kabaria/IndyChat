@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Camera, Check, X, Home, Mail, MapPin, Calendar, User, Shield, Clock } from "lucide-react";
+import { Loader2, Camera, Check, X, Home, Mail, MapPin, Calendar, User, Shield, Clock, Volume2, VolumeX } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { testTextToSpeech } from "@/functions/ttsUtils";
 
 type UserProfile = {
   id: string;
@@ -17,6 +19,7 @@ type UserProfile = {
   avatar_url: string | null;
   address: string | null;
   gender: string | null;
+  tts_enabled?: boolean;
 };
 
 export default function ProfilePage() {
@@ -38,6 +41,7 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -73,6 +77,7 @@ export default function ProfilePage() {
           avatar_url: user.user_metadata?.avatar_url || null,
           address: user.user_metadata?.address || null,
           gender: user.user_metadata?.gender || null,
+          tts_enabled: user.user_metadata?.tts_enabled || false,
         };
         
         setProfile(userProfile);
@@ -81,6 +86,7 @@ export default function ProfilePage() {
         setAddress(userProfile.address || "");
         setGender(userProfile.gender || "");
         setAvatarUrl(userProfile.avatar_url);
+        setTtsEnabled(userProfile.tts_enabled || false);
         
         // Format creation date
         if (user.created_at) {
@@ -114,6 +120,11 @@ export default function ProfilePage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleToggleTTS = async () => {
+    if (!isEditing) return;
+    setTtsEnabled(!ttsEnabled);
   };
   
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -152,6 +163,7 @@ export default function ProfilePage() {
           address,
           gender,
           avatar_url: newAvatarUrl,
+          tts_enabled: ttsEnabled,
         }
       });
       
@@ -166,6 +178,7 @@ export default function ProfilePage() {
           address,
           gender,
           avatar_url: newAvatarUrl || null,
+          tts_enabled: ttsEnabled,
         });
       }
       
@@ -176,6 +189,15 @@ export default function ProfilePage() {
       setError(error.message || "Failed to update profile");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const testTTS = async () => {
+    try {
+      await testTextToSpeech();
+    } catch (error) {
+      console.error('Error testing TTS:', error);
+      setError('Failed to test text-to-speech');
     }
   };
   
@@ -438,6 +460,45 @@ export default function ProfilePage() {
                       <option value="other">Other</option>
                     </select>
                   </div>
+
+                  {/* Text-to-Speech toggle */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-medium text-accent">Text-to-Speech</h4>
+                        <p className="text-xs text-gray-500">Enable voice responses using ElevenLabs</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleTTS}
+                        disabled={!isEditing}
+                        className={cn(
+                          "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out",
+                          ttsEnabled ? "bg-accent" : "bg-gray-200",
+                          !isEditing && "opacity-60 cursor-not-allowed"
+                        )}
+                      >
+                        <span className="sr-only">Toggle text-to-speech</span>
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                            ttsEnabled ? "translate-x-4" : "translate-x-0.5"
+                          )}
+                          style={{ marginTop: "2px" }}
+                        />
+                      </button>
+                    </div>
+                    
+                    {ttsEnabled && isEditing && (
+                      <button
+                        type="button"
+                        onClick={testTTS}
+                        className="mt-2 text-xs text-accent flex items-center gap-1 hover:underline"
+                      >
+                        <Volume2 className="h-3 w-3" /> Test voice
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
               
@@ -474,12 +535,19 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="pt-2 border-t border-gray-200">
-                    <Link href="/chat" className="text-accent hover:underline text-xs flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" />
-                      View Chat History
-                    </Link>
+
+                  <div className="flex items-start gap-2">
+                    {ttsEnabled ? (
+                      <Volume2 className="h-4 w-4 text-accent mt-0.5" />
+                    ) : (
+                      <VolumeX className="h-4 w-4 text-gray-400 mt-0.5" />
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-gray-700">Text-to-Speech</p>
+                      <p className="text-xs text-gray-500">
+                        {ttsEnabled ? "Enabled" : "Disabled"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

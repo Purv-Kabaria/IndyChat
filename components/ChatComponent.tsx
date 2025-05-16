@@ -12,6 +12,8 @@ import {
   File as FileIcon,
   Settings,
   LogOut,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -23,7 +25,30 @@ import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile, getDifyFileType } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
 import Link from "next/link";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { TTSButton } from "@/components/ui/TTSButton";
+import { cleanTextForTTS } from "@/functions/ttsUtils";
+
 const UPLOAD_API_URL = "/api/upload";
+
+// Function to extract clean message content from JSON if needed
+const extractMessageContent = (content: string): string => {
+  if (!content || typeof content !== 'string') return '';
+  
+  // Check if the content is a JSON string with action_input
+  if (content.trim().startsWith('{') && content.includes('"action_input"')) {
+    try {
+      const jsonContent = JSON.parse(content);
+      if (jsonContent.action_input) {
+        return jsonContent.action_input;
+      }
+    } catch (e) {
+      // Not valid JSON, return the original content
+    }
+  }
+  return content;
+};
 
 export default function ChatComponent() {
   const searchParams = useSearchParams();
@@ -44,6 +69,11 @@ export default function ChatComponent() {
   const hasInitializedRef = useRef(false);
   const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
+  const supabase = createClientComponentClient();
+  
+  // TTS state - simplified with our new component
+  const { profile } = useUserProfile();
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
 
   const conversationHistory = [
     { id: 1, title: "City Services Information", date: "2 days ago" },
@@ -228,19 +258,25 @@ export default function ChatComponent() {
     const result: Message[] = [];
     
     messages.forEach((message) => {
-      if (message.role === "assistant" && !processedIframeMessagesRef.current.has(message.id)) {
-        const { iframes, textSegments } = extractIframes(message.content);
+      // First, clean the message content if it's in JSON format
+      const cleanedMessage = {
+        ...message,
+        content: extractMessageContent(message.content)
+      };
+      
+      if (cleanedMessage.role === "assistant" && !processedIframeMessagesRef.current.has(cleanedMessage.id)) {
+        const { iframes, textSegments } = extractIframes(cleanedMessage.content);
 
         if (iframes.length > 0) {
           // This message contains iframes and needs special processing.
           // Mark the original message ID as processed ONLY if we are splitting it.
-          processedIframeMessagesRef.current.add(message.id);
+          processedIframeMessagesRef.current.add(cleanedMessage.id);
 
           const textOnlyContent = textSegments.join('\n\n').trim();
           // Only push the text part if it actually has content.
           if (textOnlyContent) {
             result.push({
-              ...message, // Use original timestamp and potentially other fields
+              ...cleanedMessage, // Use original timestamp and potentially other fields
               content: textOnlyContent,
               // id remains original message.id for this text part
             });
@@ -252,19 +288,19 @@ export default function ChatComponent() {
               role: "assistant",
               content: iframe,
               // Ensure timestamp is slightly offset to maintain order if needed, and generate a new unique ID.
-              timestamp: new Date(message.timestamp.getTime() + (i + 1) * 10), 
-              id: `${message.id}-iframe-${i}` 
+              timestamp: new Date(cleanedMessage.timestamp.getTime() + (i + 1) * 10), 
+              id: `${cleanedMessage.id}-iframe-${i}` 
             });
           });
         } else {
           // No iframes in this assistant message, push it as is.
           // No need to add to processedIframeMessagesRef as there's nothing to split.
-          result.push(message);
+          result.push(cleanedMessage);
         }
       } else {
         // User messages or assistant messages whose iframes have already been extracted.
         // Or, if it's an assistant message that *was* the text-only part from a previous split.
-        result.push(message);
+        result.push(cleanedMessage);
       }
     });
     
@@ -391,83 +427,98 @@ export default function ChatComponent() {
                         className="object-contain"
                       />
                     </div>
-                    <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent">
+                    <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent relative">
                       {message.content.includes('<iframe') && message.id.includes('-iframe-') ? (
                         createSafeIframe(message.content, isMobile)
                       ) : (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({
-                              href,
-                              children,
-                              ...props
-                            }: React.HTMLProps<HTMLAnchorElement>) => (
-                              <a
-                                href={href}
-                                {...props}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-secondary hover:underline">
-                                {children}
-                              </a>
-                            ),
-                            p: ({
-                              children,
-                            }: React.HTMLProps<HTMLParagraphElement>) => (
-                              <p className="mb-3 last:mb-0">{children}</p>
-                            ),
-                            ol: ({ children }) => (
-                              <ol className="list-decimal list-inside my-3 ml-2">
-                                {children}
-                              </ol>
-                            ),
-                            ul: ({ children }) => (
-                              <ul className="list-disc list-inside my-3 ml-2">
-                                {children}
-                              </ul>
-                            ),
-                            li: ({
-                              children,
-                            }: React.HTMLProps<HTMLLIElement>) => (
-                              <li className="mb-1">{children}</li>
-                            ),
-                            code: ({
-                              inline,
-                              className,
-                              children,
-                              ...props
-                            }: React.HTMLProps<HTMLElement> & {
-                              inline?: boolean;
-                            }) => {
-                              const match = /language-(\w+)/.exec(
-                                className || ""
-                              );
-                              const language = match?.[1];
-                              return !inline ? (
-                                <pre
-                                  className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
-                                    language || "none"
-                                  }`}>
+                        <>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({
+                                href,
+                                children,
+                                ...props
+                              }: React.HTMLProps<HTMLAnchorElement>) => (
+                                <a
+                                  href={href}
+                                  {...props}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-secondary hover:underline">
+                                  {children}
+                                </a>
+                              ),
+                              p: ({
+                                children,
+                              }: React.HTMLProps<HTMLParagraphElement>) => (
+                                <p className="mb-3 last:mb-0">{children}</p>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-inside my-3 ml-2">
+                                  {children}
+                                </ol>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-inside my-3 ml-2">
+                                  {children}
+                                </ul>
+                              ),
+                              li: ({
+                                children,
+                              }: React.HTMLProps<HTMLLIElement>) => (
+                                <li className="mb-1">{children}</li>
+                              ),
+                              code: ({
+                                inline,
+                                className,
+                                children,
+                                ...props
+                              }: React.HTMLProps<HTMLElement> & {
+                                inline?: boolean;
+                              }) => {
+                                const match = /language-(\w+)/.exec(
+                                  className || ""
+                                );
+                                const language = match?.[1];
+                                return !inline ? (
+                                  <pre
+                                    className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
+                                      language || "none"
+                                    }`}>
+                                    <code
+                                      className={`block text-primary text-sm font-mono whitespace-pre`}
+                                      {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                ) : (
                                   <code
-                                    className={`block text-primary text-sm font-mono whitespace-pre`}
+                                    className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
+                                      className || ""
+                                    }`}
                                     {...props}>
                                     {children}
                                   </code>
-                                </pre>
-                              ) : (
-                                <code
-                                  className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
-                                    className || ""
-                                  }`}
-                                  {...props}>
-                                  {children}
-                                </code>
-                              );
-                            },
-                          }}>
-                          {message.content}
-                        </ReactMarkdown>
+                                );
+                              },
+                            }}>
+                            {message.content}
+                          </ReactMarkdown>
+                          
+                          {/* Add TTS button for text messages */}
+                          {profile?.tts_enabled && !message.content.includes('<iframe') && (
+                            <div className="mt-1 flex justify-end">
+                              <TTSButton 
+                                text={message.content}
+                                messageId={message.id}
+                                profile={profile}
+                                isLoading={isLoading}
+                                isLastMessage={message === processedMessages[processedMessages.length - 1]}
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -588,6 +639,8 @@ export default function ChatComponent() {
                   }}
                   style={{ overflowY: "auto" }}
                 />
+                
+                {/* File upload button */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -600,6 +653,37 @@ export default function ChatComponent() {
                     <Paperclip className="h-5 w-5" />
                   )}
                 </button>
+                
+                {/* TTS toggle button - only show if profile exists */}
+                {profile && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        // Update user metadata
+                        const newTtsEnabled = !profile.tts_enabled;
+                        await supabase.auth.updateUser({
+                          data: {
+                            tts_enabled: newTtsEnabled,
+                          }
+                        });
+                        
+                        // We no longer need to manage audio directly here
+                        // as that's handled by the TTSButton component
+                      } catch (error) {
+                        console.error("Error updating TTS setting:", error);
+                      }
+                    }}
+                    className={`absolute right-12 top-1/2 -translate-y-1/2 text-accent/60 hover:text-accent ${
+                      profile.tts_enabled ? 'text-accent' : 'text-accent/40'
+                    }`}
+                    aria-label={profile.tts_enabled ? "Disable text-to-speech" : "Enable text-to-speech"}
+                    title={profile.tts_enabled ? "Disable text-to-speech" : "Enable text-to-speech"}
+                  >
+                    <Volume2 className="h-5 w-5" />
+                  </button>
+                )}
+                
                 <input
                   ref={fileInputRef}
                   type="file"
