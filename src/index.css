@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    @apply bg-gray-light text-dark font-['Poppins',_sans-serif] flex flex-col min-h-screen;
+    line-height: 1.6;
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply text-dark font-medium transition-all duration-300 relative text-base hover:text-primary;
+  }
+  
+  .nav-link::after {
+    @apply content-[''] absolute w-0 h-0.5 bottom-[-4px] left-0 bg-primary transition-all duration-300;
+  }
+  
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+  
+  .btn {
+    @apply py-2.5 px-5 rounded-md font-semibold cursor-pointer transition-all duration-300 inline-block text-sm;
+  }
+  
+  .btn-outline {
+    @apply border border-primary text-primary bg-transparent hover:bg-gray-50;
+  }
+  
+  .btn-solid {
+    @apply bg-primary text-white;
+  }
+  
+  .btn-hero {
+    @apply py-3.5 px-8 text-lg bg-[#ed1c24] border-none text-white rounded-lg shadow-[0_4px_15px_rgba(237,28,36,0.4)] transition-all duration-300 font-semibold cursor-pointer inline-block hover:translate-y-[-3px] hover:shadow-[0_6px_20px_rgba(237,28,36,0.5)] hover:bg-[#d01920];
+  }
+  
+  .btn-cta {
+    @apply py-4 px-10 text-lg bg-[#ed1c24] text-white border-none rounded-lg font-semibold cursor-pointer transition-all duration-300 inline-block shadow-[0_4px_15px_rgba(237,28,36,0.4)] hover:bg-[#d01920] hover:translate-y-[-3px] hover:shadow-[0_6px_20px_rgba(237,28,36,0.5)];
+  }
+  
+  .section-header h2 {
+    @apply text-4xl text-highlight mb-4 relative inline-block;
+  }
+  
+  .section-header h2::after {
+    @apply content-[''] absolute w-[60px] h-1 bg-highlight bottom-[-10px] left-1/2 transform -translate-x-1/2 rounded-md;
+  }
+  
+  .section-header p {
+    @apply text-black max-w-[700px] mx-auto mt-6 text-lg;
+  }
+  
+  .feature-card {
+    @apply bg-white rounded-2xl p-10 shadow-[0_5px_25px_rgba(0,0,0,0.08)] transition-all duration-300 border border-[rgba(0,0,0,0.05)] flex flex-col items-center text-center hover:translate-y-[-8px] hover:shadow-[0_15px_30px_rgba(0,0,0,0.12)];
+  }
+  
+  .feature-icon {
+    @apply text-4xl mb-6 w-20 h-20 flex items-center justify-center rounded-full text-white transition-all duration-300;
+  }
+  
+  .feature-card:hover .feature-icon {
+    @apply transform scale-110;
+  }
+  
+  .step {
+    @apply flex items-center gap-8 bg-white p-8 rounded-2xl shadow-[0_5px_20px_rgba(0,0,0,0.05)] transition-all duration-300 hover:translate-y-[-5px] hover:shadow-[0_10px_30px_rgba(0,0,0,0.1)];
+  }
+  
+  .testimonial-card {
+    @apply bg-white p-10 rounded-2xl shadow-[0_5px_20px_rgba(0,0,0,0.05)] relative transition-all duration-300 hover:translate-y-[-5px] hover:shadow-[0_10px_30px_rgba(0,0,0,0.1)];
+  }
+  
+  .delay-1 {
+    animation-delay: 0.2s;
+  }
+  
+  .delay-2 {
+    animation-delay: 0.4s;
+  }
+  
+  .delay-3 {
+    animation-delay: 0.6s;
+  }
+  
+  .delay-4 {
+    animation-delay: 0.8s;
+  }
+  
+  .delay-5 {
+    animation-delay: 1s;
+  }
+  
+  .delay-6 {
+    animation-delay: 1.2s;
+  }
+}
