@@ -10,6 +10,7 @@ export type UserProfile = {
   address: string | null;
   gender: string | null;
   tts_enabled?: boolean;
+  stt_enabled?: boolean;
   voice_id?: string;
 };
 
@@ -54,6 +55,7 @@ export function useUserProfile() {
           address: user.user_metadata?.address || null,
           gender: user.user_metadata?.gender || null,
           tts_enabled: user.user_metadata?.tts_enabled || false,
+          stt_enabled: user.user_metadata?.stt_enabled || false,
           voice_id: user.user_metadata?.voice_id || undefined,
         };
         

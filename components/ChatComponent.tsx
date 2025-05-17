@@ -14,6 +14,8 @@ import {
   LogOut,
   Volume2,
   VolumeX,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -29,6 +31,7 @@ import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { cleanTextForTTS } from "@/functions/ttsUtils";
+import { STTButton } from "@/components/ui/STTButton";
 
 const UPLOAD_API_URL = "/api/upload";
 
@@ -624,7 +627,7 @@ export default function ChatComponent() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Message IndyChat..."
-                  className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-3 pr-12 resize-none min-h-[50px] max-h-[200px] text-accent focus:outline-none focus:border-accent/30"
+                  className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-3 pr-32 resize-none min-h-[50px] max-h-[200px] text-accent focus:outline-none focus:border-accent/30"
                   rows={1}
                   onKeyDown={(e) => {
                     if (
@@ -639,6 +642,16 @@ export default function ChatComponent() {
                   }}
                   style={{ overflowY: "auto" }}
                 />
+                
+                {/* Voice input button - only show if profile exists and STT is enabled */}
+                {profile?.stt_enabled && (
+                  <div className="absolute right-28 top-1/2 -translate-y-1/2">
+                    <STTButton 
+                      onTranscript={(text) => setInput((prev) => prev + text)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
                 
                 {/* File upload button */}
                 <button
@@ -681,6 +694,37 @@ export default function ChatComponent() {
                     title={profile.tts_enabled ? "Disable text-to-speech" : "Enable text-to-speech"}
                   >
                     <Volume2 className="h-5 w-5" />
+                  </button>
+                )}
+
+                {/* STT toggle button - only show if profile exists */}
+                {profile && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        // Update user metadata
+                        const newSttEnabled = !profile.stt_enabled;
+                        await supabase.auth.updateUser({
+                          data: {
+                            stt_enabled: newSttEnabled,
+                          }
+                        });
+                      } catch (error) {
+                        console.error("Error updating STT setting:", error);
+                      }
+                    }}
+                    className={`absolute right-20 top-1/2 -translate-y-1/2 text-accent/60 hover:text-accent ${
+                      profile.stt_enabled ? 'text-accent' : 'text-accent/40'
+                    }`}
+                    aria-label={profile.stt_enabled ? "Disable speech-to-text" : "Enable speech-to-text"}
+                    title={profile.stt_enabled ? "Disable speech-to-text" : "Enable speech-to-text"}
+                  >
+                    {profile.stt_enabled ? (
+                      <Mic className="h-5 w-5" />
+                    ) : (
+                      <MicOff className="h-5 w-5" />
+                    )}
                   </button>
                 )}
                 

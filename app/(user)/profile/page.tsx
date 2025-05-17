@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Camera, Check, X, Home, Mail, MapPin, Calendar, User, Shield, Clock, Volume2, VolumeX } from "lucide-react";
+import { Loader2, Camera, Check, X, Home, Mail, MapPin, Calendar, User, Shield, Clock, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ type UserProfile = {
   address: string | null;
   gender: string | null;
   tts_enabled?: boolean;
+  stt_enabled?: boolean;
 };
 
 export default function ProfilePage() {
@@ -42,6 +43,7 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [sttEnabled, setSttEnabled] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -78,6 +80,7 @@ export default function ProfilePage() {
           address: user.user_metadata?.address || null,
           gender: user.user_metadata?.gender || null,
           tts_enabled: user.user_metadata?.tts_enabled || false,
+          stt_enabled: user.user_metadata?.stt_enabled || false,
         };
         
         setProfile(userProfile);
@@ -87,6 +90,7 @@ export default function ProfilePage() {
         setGender(userProfile.gender || "");
         setAvatarUrl(userProfile.avatar_url);
         setTtsEnabled(userProfile.tts_enabled || false);
+        setSttEnabled(userProfile.stt_enabled || false);
         
         // Format creation date
         if (user.created_at) {
@@ -126,6 +130,11 @@ export default function ProfilePage() {
     if (!isEditing) return;
     setTtsEnabled(!ttsEnabled);
   };
+
+  const handleToggleSTT = async () => {
+    if (!isEditing) return;
+    setSttEnabled(!sttEnabled);
+  };
   
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,6 +173,7 @@ export default function ProfilePage() {
           gender,
           avatar_url: newAvatarUrl,
           tts_enabled: ttsEnabled,
+          stt_enabled: sttEnabled,
         }
       });
       
@@ -179,6 +189,7 @@ export default function ProfilePage() {
           gender,
           avatar_url: newAvatarUrl || null,
           tts_enabled: ttsEnabled,
+          stt_enabled: sttEnabled,
         });
       }
       
@@ -499,6 +510,38 @@ export default function ProfilePage() {
                       </button>
                     )}
                   </div>
+
+                  {/* Speech-to-Text toggle */}
+                  <div className="border-t border-gray-100 pt-3 mt-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-medium text-accent">Speech-to-Text</h4>
+                        <p className="text-xs text-gray-500">Enable voice input for messages</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleSTT}
+                        disabled={!isEditing}
+                        className={cn(
+                          "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out",
+                          sttEnabled ? "bg-accent" : "bg-gray-200",
+                          !isEditing && "opacity-60 cursor-not-allowed"
+                        )}
+                      >
+                        <span className="sr-only">Toggle speech-to-text</span>
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                            sttEnabled ? "translate-x-4" : "translate-x-0.5"
+                          )}
+                          style={{ marginTop: "2px" }}
+                        />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Note: Speech recognition requires microphone access and is only available in supported browsers.
+                    </p>
+                  </div>
                 </form>
               </div>
               
@@ -546,6 +589,20 @@ export default function ProfilePage() {
                       <p className="text-xs font-medium text-gray-700">Text-to-Speech</p>
                       <p className="text-xs text-gray-500">
                         {ttsEnabled ? "Enabled" : "Disabled"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    {sttEnabled ? (
+                      <Mic className="h-4 w-4 text-accent mt-0.5" />
+                    ) : (
+                      <MicOff className="h-4 w-4 text-gray-400 mt-0.5" />
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-gray-700">Speech-to-Text</p>
+                      <p className="text-xs text-gray-500">
+                        {sttEnabled ? "Enabled" : "Disabled"}
                       </p>
                     </div>
                   </div>
