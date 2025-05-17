@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -202,5 +202,25 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function SignupPageFallback() {
+  return (
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <p className="mt-2 text-sm text-gray-500">Loading signup page...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupPageFallback />}>
+      <SignupPageContent />
+    </Suspense>
   );
 } 
