@@ -11,19 +11,38 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getSession();
 
   // Check if the user is authenticated
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/(auth)') || 
-                     request.nextUrl.pathname.startsWith('/auth/');
+  // More nuanced auth route handling
+  const isLoginOrResetPasswordRoute = request.nextUrl.pathname.startsWith('/login') || 
+                                       request.nextUrl.pathname.startsWith('/reset-password');
+  const isSignupRoute = request.nextUrl.pathname.startsWith('/signup');
+  const isProtectedRoute = request.nextUrl.pathname.startsWith('/chat');
   
   // If accessing a protected route without session, redirect to login
-  if (!session && request.nextUrl.pathname.startsWith('/chat')) {
+  if (!session && isProtectedRoute) {
     const redirectUrl = new URL('/login', request.url);
     return NextResponse.redirect(redirectUrl);
   }
-
-  // If already logged in and trying to access auth pages, redirect to chat
-  if (session && isAuthRoute) {
+  
+  // If already logged in and trying to access login/reset-password, redirect to chat
+  if (session && isLoginOrResetPasswordRoute) {
     const redirectUrl = new URL('/chat', request.url);
     return NextResponse.redirect(redirectUrl);
+  }
+  
+  // Special handling for signup route
+  if (isSignupRoute) {
+    // If logged in, offer option to redirect to chat
+    if (session) {
+      const url = new URL(request.url);
+      const forceRedirect = url.searchParams.get('forceRedirect');
+      
+      if (forceRedirect !== 'false') {
+        const redirectUrl = new URL('/chat', request.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+    // Always allow access to signup route if not redirecting
+    return response;
   }
   
   return response;

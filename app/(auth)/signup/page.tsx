@@ -19,6 +19,7 @@ export default function SignupPage() {
   const [envStatus, setEnvStatus] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [currentSession, setCurrentSession] = useState<any>(null);
 
   // Verify environment variables and Supabase client on component mount
   // Also check session status to handle already authenticated users
@@ -41,38 +42,43 @@ export default function SignupPage() {
         return;
       }
       
-      // Verify Supabase client is working and check user session
+      // Check for forceRedirect parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const forceRedirect = urlParams.get('forceRedirect');
+      
       try {
         const { data, error } = await supabase.auth.getSession();
+        
         if (error) {
-          console.error("Supabase client initialization error:", error);
-          setEnvStatus("Error connecting to Supabase");
+          console.error("Supabase session retrieval error:", error);
+          setEnvStatus("Error retrieving session");
         } else {
-          console.log("Supabase client initialized successfully");
+          // Store the session for use in rendering
+          setCurrentSession(data.session);
           
-          // If user is already authenticated, redirect them appropriately
-          if (data.session) {
-            console.log("User already has an active session");
+          // Only auto-redirect if a session exists and forceRedirect is not explicitly 'false'
+          if (data.session && forceRedirect !== 'false') {
+            console.log("Active session detected, preparing redirect");
             
-            // If email is not verified, redirect to verification page
+            // If email is not verified, redirect to verification
             if (data.session.user.email && !data.session.user.email_confirmed_at) {
-              console.log("User email not verified, redirecting to verification page");
+              console.log("Unverified email, redirecting to verification");
               router.push(`/verify?email=${encodeURIComponent(data.session.user.email)}`);
               return;
             }
             
-            // If user is fully authenticated, redirect to chat
-            console.log("User is authenticated, redirecting to chat");
+            // Redirect to chat for fully authenticated users
+            console.log("Authenticated session, redirecting to chat");
             router.push("/chat");
             return;
           }
         }
       } catch (err) {
-        console.error("Unexpected error during Supabase client check:", err);
-        setEnvStatus("Unexpected error checking Supabase connection");
+        console.error("Unexpected error during session check:", err);
+        setEnvStatus("Unexpected error checking session");
+      } finally {
+        setSessionChecked(true);
       }
-      
-      setSessionChecked(true);
     };
     
     checkSupabaseConfig();
@@ -204,7 +210,7 @@ export default function SignupPage() {
         // Offer option to navigate to login
         setTimeout(() => {
           router.push("/login");
-        }, 3000);
+        }, 5000);
       } else if (error.message?.includes("network")) {
         errorMessage = "Network error. Please check your internet connection and try again.";
       } else if (error.message?.includes("email verification")) {
@@ -298,6 +304,20 @@ export default function SignupPage() {
         {envStatus && (
           <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm">
             <strong>Debug:</strong> {envStatus}
+          </div>
+        )}
+        
+        {/* Add a hint for logged-in users */}
+        {sessionChecked && currentSession && (
+          <div className="bg-blue-50 text-blue-700 p-3 rounded-lg mb-4 text-sm">
+            <strong>Note:</strong> You are currently logged in. 
+            If you want to create another account, 
+            <Link 
+              href="/signup?forceRedirect=false" 
+              className="ml-1 underline font-medium"
+            >
+              click here
+            </Link>
           </div>
         )}
         
