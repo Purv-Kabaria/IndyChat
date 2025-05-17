@@ -78,6 +78,157 @@ const handleApiError = (statusElement, error) => {
   updateStatus(statusElement, 'Error: ' + (error.message || 'Something went wrong'), true);
 };
 
+// Spell checking dictionary for common misspellings
+const SPELLING_CORRECTIONS = {
+  // Common typos and their corrections
+  'teh': 'the',
+  'wiht': 'with',
+  'adn': 'and',
+  'taht': 'that',
+  'waht': 'what',
+  'thier': 'their',
+  'thre': 'there',
+  'becuase': 'because',
+  'recieve': 'receive',
+  'beleive': 'believe',
+  'occured': 'occurred',
+  'seperate': 'separate',
+  'definately': 'definitely',
+  'accomodate': 'accommodate',
+  'neccessary': 'necessary',
+  'occurence': 'occurrence',
+  'untill': 'until',
+  'allready': 'already',
+  'allmost': 'almost',
+  'untill': 'until',
+  'allways': 'always',
+  'ofcourse': 'of course',
+  'alot': 'a lot',
+  'cant': "can't",
+  'dont': "don't",
+  'isnt': "isn't",
+  'didnt': "didn't",
+  'doesnt': "doesn't",
+  'wont': "won't",
+  'wouldnt': "wouldn't",
+  'shouldnt': "shouldn't",
+  'couldnt': "couldn't",
+  'wasnt': "wasn't",
+  'werent': "weren't",
+  'hasnt': "hasn't",
+  'havent': "haven't",
+  'arent': "aren't",
+  'youre': "you're",
+  'theyre': "they're",
+  'theyll': "they'll",
+  'whats': "what's",
+  'thats': "that's",
+  // New corrections for observed typos
+  'appy': 'happy',
+  'owever': 'however',
+  'abut': 'about',
+  'needmore': 'need more',
+  'tohelp': 'to help',
+  'grtting': 'getting',
+  'trype': 'type',
+  'od': 'of',
+  'informaton': 'information',
+  'th': 'the',
+  'wth': 'with',
+  'ths': 'this',
+  'tht': 'that',
+  'provde': 'provide',
+  'assst': 'assist',
+  'plese': 'please',
+  'pleasehelp': 'please help',
+  'helpme': 'help me',
+  'ihave': 'I have',
+  'iwant': 'I want',
+  'ineed': 'I need',
+  'iwill': 'I will',
+  'iam': 'I am'
+};
+
+// Words that are commonly stuck together and need separation
+const COMPOUND_WORD_PATTERNS = [
+  { pattern: /([a-z])(I[a-z])/g, replacement: '$1 $2' }, // Fix space before "I" pronoun
+  { pattern: /(need)(more|help|to|some|any)/gi, replacement: '$1 $2' },
+  { pattern: /(to)(help|find|get|do|make|see|go)/gi, replacement: '$1 $2' },
+  { pattern: /(can)(help|find|get|do|make|see|go)/gi, replacement: '$1 $2' },
+  { pattern: /(please)(help|find|get|do|make|see|go)/gi, replacement: '$1 $2' },
+  { pattern: /(i)(am|have|will|would|can|could|should|need|want)/gi, replacement: '$1 $2' }
+];
+
+// Advanced spell checking function that preserves formatting and markdown
+const spellCheck = (text) => {
+  if (!text) return text;
+  
+  // Step 1: Fix compound words that need spaces
+  let processedText = text;
+  COMPOUND_WORD_PATTERNS.forEach(({ pattern, replacement }) => {
+    processedText = processedText.replace(pattern, replacement);
+  });
+  
+  // Step 2: Preserve line breaks by splitting on them and processing each line separately
+  const lines = processedText.split(/(\n+)/);
+  const processedLines = lines.map(line => {
+    // Skip processing line breaks (preserve them)
+    if (/^\n+$/.test(line)) return line;
+    
+    // For each line, process word by word
+    const words = line.split(/(\s+)/);
+    const correctedWords = words.map(word => {
+      // Skip processing spaces (preserve them)
+      if (/^\s+$/.test(word)) return word;
+      
+      // Skip processing markdown code blocks or special syntax
+      if (word.startsWith('`') || word.startsWith('#') || 
+          word.startsWith('*') || word.startsWith('>') ||
+          word.startsWith('[') || word.startsWith('(')) {
+        return word;
+      }
+      
+      // Extract punctuation at the start and end of the word
+      const startPunct = word.match(/^[^\w]*/)[0];
+      const endPunct = word.match(/[^\w]*$/)[0];
+      const cleanWord = word.slice(startPunct.length, word.length - endPunct.length).toLowerCase();
+      
+      // Check if the word needs correction
+      if (SPELLING_CORRECTIONS[cleanWord]) {
+        // Replace with corrected word while preserving case
+        const correction = SPELLING_CORRECTIONS[cleanWord];
+        
+        // Preserve original capitalization pattern
+        if (cleanWord.length > 0 && cleanWord[0] === cleanWord[0].toUpperCase()) {
+          // First letter was capitalized
+          return startPunct + correction.charAt(0).toUpperCase() + correction.slice(1) + endPunct;
+        } else {
+          return startPunct + correction + endPunct;
+        }
+      }
+      
+      // No correction needed
+      return word;
+    });
+    
+    // Join the words back together
+    return correctedWords.join('');
+  });
+  
+  // Join the lines back together
+  let result = processedLines.join('');
+  
+  // Step 3: Normalize spacing after punctuation
+  // Ensure there's a space after periods, commas, question marks, and exclamation points
+  // but not if they're followed by a closing quote, bracket, or another punctuation
+  result = result.replace(/([.!?,])([^\s"'\)\]\}\.!?,;:])/g, '$1 $2');
+  
+  // Step 4: Fix multiple spaces between words (but preserve indentation)
+  result = result.replace(/([^\s])[ ]{2,}([^\s])/g, '$1 $2');
+  
+  return result;
+};
+
 // Format timestamp to a readable format
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -89,7 +240,10 @@ const createMessageElement = (message, isUser) => {
   const messageEl = document.createElement('div');
   messageEl.classList.add('message');
   messageEl.classList.add(isUser ? 'user-message' : 'bot-message');
-  messageEl.textContent = message.content;
+  
+  // Apply spell checking only to bot messages, not user messages
+  const messageContent = isUser ? message.content : spellCheck(message.content);
+  messageEl.textContent = messageContent;
   
   const timeEl = document.createElement('div');
   timeEl.classList.add('message-time');
@@ -243,13 +397,18 @@ const sendChatMessage = async (message, statusElement) => {
                     if (jsonData.event === 'agent_message' && jsonData.answer !== undefined) {
                       // This is the main message content we want to display
                       hasReceivedContent = true;
+                      hasReceivedContent = true;
                       const newContent = jsonData.answer || '';
                       botResponseText += newContent;
                       
-                      // Update the temporary message in UI
+                      // Apply spell checking to the full response text
+                      // For streaming responses, we want to check the entire accumulated text
+                      // to ensure consistency and handle multi-word corrections
+                      const correctedText = spellCheck(botResponseText);
+                      
+                      // Update the temporary message in UI with spell-checked content
                       if (messageElement) {
-                        messageElement.textContent = botResponseText;
-                        // Ensure scrolling follows the message
+                        messageElement.textContent = correctedText;
                         messageElement.scrollIntoView({ behavior: 'smooth' });
                       }
                     } else if (jsonData.event === 'message_end') {
@@ -281,12 +440,14 @@ const sendChatMessage = async (message, statusElement) => {
           if (!hasReceivedContent || !botResponseText) {
             botResponseText = "I received your message, but I couldn't generate a proper response.";
             if (messageElement) {
+              // No need to spell check this fallback message
               messageElement.textContent = botResponseText;
             }
           }
           
-          // Save the final message to history
-          await addMessageToHistory(botResponseText, false);
+          // Apply final spell-checking to the complete message before saving to history
+          // This ensures any patterns that span across chunks are properly corrected
+          await addMessageToHistory(spellCheck(botResponseText), false);
           
         } catch (streamProcessingError) {
           // Handle errors during stream processing
@@ -442,7 +603,7 @@ const initializeChatUI = async () => {
   // Add welcome message if there's no history
   const history = await loadChatHistory();
   if (history.length === 0) {
-    // Add the welcome message from the HTML
+    // Add the welcome message from the HTML (no need to spell check this)
     const welcomeMessage = {
       content: "Hello! I'm your IndyChat assistant. How can I help you today?",
       sender: 'bot',
