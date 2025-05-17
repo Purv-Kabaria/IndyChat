@@ -40,9 +40,33 @@ export default function LoginPage() {
         throw error;
       }
       
+      // Fetch user's profile data to determine role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user?.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Failed to fetch profile:', profileError);
+        // Continue with default redirection even if profile fetch fails
+      }
+
+      // Update last sign-in timestamp
+      await supabase
+        .from('profiles')
+        .update({ last_sign_in_at: new Date().toISOString() })
+        .eq('id', data.user?.id);
+      
       // If successful, refresh the page to trigger middleware redirect
       router.refresh();
-      router.push("/chat");
+      
+      // Redirect based on role
+      if (profile?.role === 'admin') {
+        router.push("/admin");
+      } else {
+        router.push("/chat");
+      }
     } catch (error: any) {
       setError(error.message || "An error occurred during login");
     } finally {
