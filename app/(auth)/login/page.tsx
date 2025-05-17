@@ -19,6 +19,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(message);
 
+type AuthError = {
+  message: string;
+};
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -26,7 +30,7 @@ export default function LoginPage() {
     setSuccess(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data: loginData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -44,7 +48,7 @@ export default function LoginPage() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', data.user?.id)
+        .eq('id', loginData.user?.id)
         .single();
       
       if (profileError) {
@@ -56,7 +60,7 @@ export default function LoginPage() {
       await supabase
         .from('profiles')
         .update({ last_sign_in_at: new Date().toISOString() })
-        .eq('id', data.user?.id);
+        .eq('id', loginData.user?.id);
       
       // If successful, refresh the page to trigger middleware redirect
       router.refresh();
@@ -67,8 +71,8 @@ export default function LoginPage() {
       } else {
         router.push("/chat");
       }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during login");
+    } catch (error: unknown) {
+      setError((error as AuthError).message || "An error occurred during login");
     } finally {
       setLoading(false);
     }
@@ -79,7 +83,7 @@ export default function LoginPage() {
     setError(null);
     
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/api/auth/callback`,// Path to match actual route at app/api/auth/callback
@@ -87,8 +91,8 @@ export default function LoginPage() {
       });
 
       if (error) throw error;
-    } catch (error: any) {
-      setError(error.message || "An error occurred with Google sign in");
+    } catch (error: unknown) {
+      setError((error as AuthError).message || "An error occurred with Google sign in");
       setLoading(false);
     }
   };
@@ -179,7 +183,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/signup" className="text-accent hover:underline font-medium">
             Sign up
           </Link>

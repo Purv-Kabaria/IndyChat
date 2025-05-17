@@ -11,24 +11,20 @@ import {
   X,
   File as FileIcon,
   Settings,
-  LogOut,
 } from "lucide-react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Image from "next/image";
 import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
-import { uploadFile, getDifyFileType } from "@/functions/uploadUtils";
+import { uploadFile } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
 import SignOutButton from "./SignOutButton";
 
-const UPLOAD_API_URL = "/api/upload";
-
 export default function ChatComponent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +142,7 @@ export default function ChatComponent() {
         }
       }
     }
-  }, [searchParams, userId, conversationId]);
+  }, [searchParams, userId, conversationId, messages.length]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -579,7 +575,7 @@ export default function ChatComponent() {
                   placeholder="Message IndyChat..."
                   className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-3 pr-12 resize-none min-h-[50px] max-h-[200px] text-accent focus:outline-none focus:border-accent/30"
                   rows={1}
-                  onKeyDown={(e) => {
+  onKeyDown={(e) => {
                     if (
                       e.key === "Enter" &&
                       !e.shiftKey &&
@@ -587,7 +583,7 @@ export default function ChatComponent() {
                       (input.trim() || uploadedFiles.length > 0)
                     ) {
                       e.preventDefault();
-                      handleSubmit(e as any);
+                      handleSubmit(e as React.KeyboardEvent<HTMLTextAreaElement>);
                     }
                   }}
                   style={{ overflowY: "auto" }}

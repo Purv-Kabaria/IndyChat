@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 const DIFY_API_KEY = process.env.DIFY_API_KEY;
 const DIFY_UPLOAD_API_URL = "https://api.dify.ai/v1/files/upload";
 
+type UploadError = {
+  message: string;
+  code?: number;
+  details?: string;
+};
+
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
@@ -41,10 +47,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!uploadResponse.ok) {
-      let errorData;
+      let errorData: string | object;
       try {
         errorData = await uploadResponse.json();
-      } catch (e) {
+      } catch {
         errorData = await uploadResponse.text();
       }
       console.error("API Upload Route: Dify upload failed:", uploadResponse.status, errorData);
@@ -58,11 +64,21 @@ export async function POST(req: NextRequest) {
     console.log("API Upload Route: File uploaded successfully:", resultData.id);
     
     return NextResponse.json(resultData);
-  } catch (error: any) {
-    console.error("API Upload Route: Internal server error:", error);
+  } catch (error: unknown) {
+    const uploadError: UploadError = {
+      message: error instanceof Error ? error.message : String(error),
+      code: 500,
+      details: error instanceof Error ? error.stack : undefined
+    };
+
+    console.error("API Upload Route: Internal server error:", uploadError.message);
     return NextResponse.json(
-      { error: 'File upload processing failed', details: error.message || String(error) },
-      { status: 500 }
+      { 
+        error: 'File upload processing failed', 
+        details: uploadError.message,
+        code: uploadError.code
+      },
+      { status: uploadError.code }
     );
   }
 } 

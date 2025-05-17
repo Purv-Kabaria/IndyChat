@@ -7,6 +7,8 @@ const CTA = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
+    const currentSectionRef = sectionRef.current;
+    
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -24,13 +26,13 @@ const CTA = () => {
       { threshold: 0.1 }
     );
     
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
+    if (currentSectionRef) {
+      observer.observe(currentSectionRef);
     }
     
     return () => {
-      if (sectionRef.current) {
-        observer.unobserve(sectionRef.current);
+      if (currentSectionRef) {
+        observer.unobserve(currentSectionRef);
       }
     };
   }, []);

@@ -1,8 +1,10 @@
+"use client";
 
 import { useEffect, useRef } from 'react';
+import { Calendar, Building2, MapPin, Utensils, Bus, BatteryPlus as EmergencyPlus } from 'lucide-react';
 
 type FeatureCardProps = {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
   delay: string;
@@ -12,6 +14,8 @@ const FeatureCard = ({ icon, title, description, delay }: FeatureCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
+    const currentCardRef = cardRef.current;
+    
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -26,13 +30,13 @@ const FeatureCard = ({ icon, title, description, delay }: FeatureCardProps) => {
       { threshold: 0.1 }
     );
     
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
+    if (currentCardRef) {
+      observer.observe(currentCardRef);
     }
     
     return () => {
-      if (cardRef.current) {
-        observer.unobserve(cardRef.current);
+      if (currentCardRef) {
+        observer.unobserve(currentCardRef);
       }
     };
   }, []);
@@ -40,13 +44,15 @@ const FeatureCard = ({ icon, title, description, delay }: FeatureCardProps) => {
   return (
     <div 
       ref={cardRef} 
-      className={`feature-card opacity-0 transform translate-y-5 transition-all duration-300 ease-out ${delay}`}
+      className={`feature-card opacity-0 transform translate-y-5 transition-all duration-300 ease-out ${delay} bg-white rounded-lg shadow-lg p-8 text-center`}
     >
-      <div className="feature-icon bg-highlight">
-        <i className={`fas ${icon}`}></i>
+      <div className="mb-6 flex justify-center">
+        <div className="w-16 h-16 bg-[#14284b] rounded-full flex items-center justify-center text-white">
+          {icon}
+        </div>
       </div>
-      <h3 className="text-xl font-semibold mb-4 text-primary">{title}</h3>
-      <p className="text-black text-base leading-7">{description}</p>
+      <h3 className="text-xl font-semibold mb-4 text-[#14284b]">{title}</h3>
+      <p className="text-gray-600 text-base leading-relaxed">{description}</p>
     </div>
   );
 };
@@ -55,6 +61,8 @@ const Features = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
+    const currentSectionRef = sectionRef.current;
+    
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -70,59 +78,59 @@ const Features = () => {
       { threshold: 0.1 }
     );
     
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
+    if (currentSectionRef) {
+      observer.observe(currentSectionRef);
     }
     
     return () => {
-      if (sectionRef.current) {
-        observer.unobserve(sectionRef.current);
+      if (currentSectionRef) {
+        observer.unobserve(currentSectionRef);
       }
     };
   }, []);
   
   return (
-    <section ref={sectionRef} className="py-24 px-8 bg-white" id="features">
-      <div className="section-header opacity-0 transition-all duration-500">
-        <h2>How IndyChat Helps You</h2>
-        <p>Discover all the ways our chatbot can assist you in navigating Indianapolis</p>
+    <section ref={sectionRef} className="py-24 px-8 bg-gray-50" id="features">
+      <div className="section-header opacity-0 transition-all duration-500 text-center mb-16">
+        <h2 className="text-3xl font-bold text-[#14284b] mb-4">How IndyChat Helps You</h2>
+        <p className="text-gray-600">Discover all the ways our chatbot can assist you in navigating Indianapolis</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 max-w-[1200px] mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
         <FeatureCard 
-          icon="fa-calendar-alt"
+          icon={<Calendar className="w-8 h-8" />}
           title="Local Events"
           description="Find concerts, festivals, and community happenings throughout Indianapolis. Get dates, locations, and ticket information."
-          delay="delay-1"
+          delay="delay-100"
         />
         <FeatureCard 
-          icon="fa-city"
+          icon={<Building2 className="w-8 h-8" />}
           title="City Services"
           description="Get info on trash collection, permits, parking regulations, and other municipal services. Never miss a pickup day again."
-          delay="delay-2"
+          delay="delay-200"
         />
         <FeatureCard 
-          icon="fa-map-marked-alt"
+          icon={<MapPin className="w-8 h-8" />}
           title="Neighborhood Guide"
           description="Explore different areas and what makes each Indianapolis neighborhood unique. Find the perfect place to live or visit."
-          delay="delay-3"
+          delay="delay-300"
         />
         <FeatureCard 
-          icon="fa-utensils"
+          icon={<Utensils className="w-8 h-8" />}
           title="Dining & More"
           description="Get personalized recommendations for restaurants, bars, and attractions based on your preferences and location."
-          delay="delay-4"
+          delay="delay-400"
         />
         <FeatureCard 
-          icon="fa-bus"
+          icon={<Bus className="w-8 h-8" />}
           title="Transportation"
           description="Real-time updates on INDYGO bus routes, road closures, bike share locations, and parking options downtown."
-          delay="delay-5"
+          delay="delay-500"
         />
         <FeatureCard 
-          icon="fa-first-aid"
+          icon={<EmergencyPlus className="w-8 h-8" />}
           title="Emergency Resources"
           description="Quick access to emergency contacts, hospital locations, and important safety information for Marion County."
-          delay="delay-6"
+          delay="delay-600"
         />
       </div>
     </section>

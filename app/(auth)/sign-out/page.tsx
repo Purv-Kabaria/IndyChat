@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Loader2 } from "lucide-react";
 
+type AuthError = {
+  message: string;
+  code?: string;
+};
+
 export default function SignOutPage() {
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -25,9 +30,9 @@ export default function SignOutPage() {
         setTimeout(() => {
           router.push('/');
         }, 1000);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error signing out:", error);
-        setError(error.message || "An error occurred during sign out");
+        setError((error as AuthError).message || "An error occurred during sign out");
         
         // Even if there's an error, redirect to home after a delay
         setTimeout(() => {
