@@ -1,13 +1,13 @@
 "use client";
 
-import Navbar from '@/components/Navbar';
-import Hero from '@/components/Hero';
-import Features from '@/components/Features';
-import HowItWorks from '@/components/HowItWorks';
-import Testimonials from '@/components/Testimonials';
-import CTA from '@/components/CTA';
-import Footer from '@/components/Footer';
-import BackToTop from '@/components/BackToTop';
+import Navbar from '@/components/layout/Navbar';
+import Hero from '@/components/home/Hero';
+import Features from '@/components/home/Features';
+import HowItWorks from '@/components/home/HowItWorks';
+import Testimonials from '@/components/home/Testimonials';
+import CTA from '@/components/home/CTA';
+import Footer from '@/components/layout/Footer';
+import BackToTop from '@/components/home/BackToTop';
 import { useEffect } from 'react';
 
 const Index = () => {

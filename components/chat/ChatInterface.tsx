@@ -3,7 +3,7 @@
 import { Send } from 'lucide-react';
 import ChatSidebar from './ChatSidebar';
 import { useState } from 'react';
-import Header from './Header';
+import Header from '../layout/Header';
 
 export default function ChatInterface() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

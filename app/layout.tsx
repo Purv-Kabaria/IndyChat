@@ -1,5 +1,5 @@
 import './globals.css';
-import PageTransition from '../components/PageTransition';
+import PageTransition from '../components/layout/PageTransition';
 
 // This must remain a server component
 export const metadata = {
