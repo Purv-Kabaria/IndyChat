@@ -13,7 +13,6 @@ import {
   Settings,
   LogOut,
   Volume2,
-  VolumeX,
   Mic,
   MicOff,
 } from "lucide-react";
@@ -30,10 +29,8 @@ import Link from "next/link";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
-import { cleanTextForTTS } from "@/functions/ttsUtils";
 import { STTButton } from "@/components/ui/STTButton";
-
-const UPLOAD_API_URL = "/api/upload";
+import { cn } from "@/lib/utils";
 
 // Function to extract clean message content from JSON if needed
 const extractMessageContent = (content: string): string => {
@@ -46,7 +43,7 @@ const extractMessageContent = (content: string): string => {
       if (jsonContent.action_input) {
         return jsonContent.action_input;
       }
-    } catch (e) {
+    } catch {
       // Not valid JSON, return the original content
     }
   }
@@ -75,7 +72,6 @@ export default function ChatComponent() {
 
   // TTS state - simplified with our new component
   const { profile } = useUserProfile();
-  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
 
   const conversationHistory = [
     { id: 1, title: "City Services Information", date: "2 days ago" },
@@ -247,6 +243,17 @@ export default function ChatComponent() {
   const startNewChat = () => {
     setConversationId(null);
     setSidebarOpen(false);
+  };
+
+  // Handle speech-to-text transcript
+  const handleSTTTranscript = (text: string) => {
+    setInput((prev) => {
+      const currentInput = prev.trim();
+      return currentInput.length > 0 ? `${currentInput} ${text}` : text;
+    });
+    if (textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
   };
 
   const messageVariants = {
@@ -517,23 +524,16 @@ export default function ChatComponent() {
                           </ReactMarkdown>
 
                           {/* Add TTS button for text messages */}
-                          {profile?.tts_enabled &&
-                            !message.content.includes("<iframe") && (
-                              <div className="mt-1 flex justify-end">
-                                <TTSButton
-                                  text={message.content}
-                                  messageId={message.id}
-                                  profile={profile}
-                                  isLoading={isLoading}
-                                  isLastMessage={
-                                    message ===
-                                    processedMessages[
-                                      processedMessages.length - 1
-                                    ]
-                                  }
-                                />
-                              </div>
-                            )}
+                          {!message.content.includes("<iframe") && (
+                            <div className="mt-2 text-xs flex justify-end items-center gap-4">
+                              <TTSButton
+                                text={extractMessageContent(message.content)}
+                                profile={profile}
+                                isLoading={isLoading && message.id === messages[messages.length - 1]?.id}
+                                isLastMessage={message.id === messages[messages.length - 1]?.id}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -662,7 +662,7 @@ export default function ChatComponent() {
                 {profile?.stt_enabled && (
                   <div className="absolute right-28 top-1/2 -translate-y-1/2">
                     <STTButton
-                      onTranscript={(text) => setInput((prev) => prev + text)}
+                      onTranscript={handleSTTTranscript}
                       disabled={isLoading}
                     />
                   </div>

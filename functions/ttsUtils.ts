@@ -29,10 +29,8 @@ export const playTextToSpeech = async (
   onComplete: () => void,
   onError: (error: any) => void
 ): Promise<{ audio: HTMLAudioElement | null; stop: () => void }> => {
-  // Don't speak if TTS is not enabled in user profile
-  if (!profile?.tts_enabled) {
-    return { audio: null, stop: () => {} };
-  }
+  // We'll still proceed with TTS even if profile is null or TTS is not enabled
+  // as the TTSButton component will handle the profile checking now
   
   try {
     onStart();

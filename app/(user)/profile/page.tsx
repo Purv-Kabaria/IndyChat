@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Camera, Check, X, Home, Mail, MapPin, Calendar, User, Shield, Clock, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { Loader2, Camera, Check, X, Home, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { testTextToSpeech } from "@/functions/ttsUtils";
 
 type UserProfile = {
@@ -101,9 +100,9 @@ export default function ProfilePage() {
             day: 'numeric' 
           }));
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching user profile:", error);
-        setError(error.message || "Failed to load profile");
+        setError(error instanceof Error ? error.message : "Failed to load profile");
       } finally {
         setLoading(false);
       }
@@ -157,15 +156,15 @@ export default function ProfilePage() {
         if (uploadError) throw uploadError;
         
         // Get public URL
-        const { data: urlData } = await supabase.storage
+        const { data } = await supabase.storage
           .from('avatars')
           .getPublicUrl(fileName);
           
-        newAvatarUrl = urlData.publicUrl;
+        newAvatarUrl = data.publicUrl;
       }
       
       // Update user metadata
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         data: {
           first_name: firstName,
           last_name: lastName,
@@ -195,9 +194,9 @@ export default function ProfilePage() {
       
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating profile:", error);
-      setError(error.message || "Failed to update profile");
+      setError(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setUpdating(false);
     }

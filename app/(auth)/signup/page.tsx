@@ -261,20 +261,6 @@ function SignupPageContent() {
     }
   };
 
-  // Helper function to get the redirectTo URL with fallback
-  const getRedirectUrl = (defaultPath = '/chat') => {
-    // Check URL parameters for a redirectTo
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectParam = urlParams.get('redirectTo');
-    
-    // Ensure the redirect is to a relative URL to prevent open redirect vulnerabilities
-    if (redirectParam && !redirectParam.startsWith('http')) {
-      return redirectParam;
-    }
-    
-    return defaultPath;
-  };
-
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError(null);

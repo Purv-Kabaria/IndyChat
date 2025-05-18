@@ -4,16 +4,16 @@ import { useState, useRef } from "react";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 import { UserProfile } from "@/lib/hooks/useUserProfile";
 import { playTextToSpeech } from "@/functions/ttsUtils";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 interface TTSButtonProps {
   text: string;
-  messageId: string;
   profile: UserProfile | null;
   isLoading?: boolean;
   isLastMessage?: boolean;
 }
 
-export function TTSButton({ text, messageId, profile, isLoading = false, isLastMessage = false }: TTSButtonProps) {
+export function TTSButton({ text, profile, isLoading = false, isLastMessage = false }: TTSButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -27,6 +27,36 @@ export function TTSButton({ text, messageId, profile, isLoading = false, isLastM
         stopFunctionRef.current = null;
       }
       return;
+    }
+
+    // Check if TTS is enabled in the user's profile
+    if (!profile?.tts_enabled) {
+      // Alert the user that TTS is not enabled
+      const enableTTS = confirm("Text-to-speech is not enabled in your profile. Would you like to enable it now?");
+      
+      if (enableTTS) {
+        try {
+          // Create Supabase client
+          const supabase = createClientComponentClient();
+          
+          // Update user metadata
+          await supabase.auth.updateUser({
+            data: {
+              tts_enabled: true,
+            },
+          });
+          
+          alert("Text-to-speech has been enabled. You can now listen to messages.");
+          // Continue with TTS after enabling
+        } catch (error) {
+          console.error('Error updating TTS setting:', error);
+          alert('Failed to enable text-to-speech. Please try again or update your settings in the profile page.');
+          return;
+        }
+      } else {
+        // User declined to enable TTS
+        return;
+      }
     }
 
     try {

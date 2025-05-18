@@ -60,9 +60,9 @@ export function useUserProfile() {
         };
         
         setProfile(userProfile);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching user profile:", error);
-        setError(error);
+        setError(error instanceof Error ? error : new Error(String(error)));
       } finally {
         setLoading(false);
       }

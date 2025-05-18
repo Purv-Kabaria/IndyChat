@@ -29,7 +29,7 @@ const Hero = () => {
           transition={{ duration: 0.7, delay: 0.4 }}
         >
           <Link 
-            href="/chatbot" 
+            href="/chat" 
             className="inline-flex items-center justify-center py-4 px-8 text-lg font-medium bg-[#ed1c24] hover:bg-[#d01920] text-white rounded-md transition-all duration-300 hover:shadow-lg"
           >
             <motion.span
