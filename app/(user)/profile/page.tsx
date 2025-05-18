@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { testTextToSpeech } from "@/functions/ttsUtils";
+import SignOutButton from "@/components/SignOutButton";
 
 type UserProfile = {
   id: string;
@@ -149,7 +150,7 @@ export default function ProfilePage() {
         const fileExt = avatarFile.name.split('.').pop();
         const fileName = `${profile?.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile);
           
@@ -604,6 +605,10 @@ export default function ProfilePage() {
                         {sttEnabled ? "Enabled" : "Disabled"}
                       </p>
                     </div>
+                  </div>
+                  
+                  <div className="pt-3 mt-3 border-t border-gray-100">
+                    <SignOutButton variant="default" className="w-full" />
                   </div>
                 </div>
               </div>

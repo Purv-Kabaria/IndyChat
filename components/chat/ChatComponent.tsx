@@ -11,7 +11,6 @@ import {
   X,
   File as FileIcon,
   Settings,
-  LogOut,
   Volume2,
   Mic,
   MicOff,
@@ -30,7 +29,7 @@ import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
-import { cn } from "@/lib/utils";
+import SignOutButton from "@/components/SignOutButton";
 
 // Function to extract clean message content from JSON if needed
 const extractMessageContent = (content: string): string => {
@@ -410,10 +409,10 @@ export default function ChatComponent() {
               <span>Settings</span>
             </button>
           </Link>
-          <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
-            <LogOut className="h-4 w-4" />
-            <span>Sign out</span>
-          </button>
+          <SignOutButton 
+            variant="minimal" 
+            className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors"
+          />
         </div>
       </div>
 
