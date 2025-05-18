@@ -595,4 +595,3 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
     showStatus('An error occurred. Please try again.', 'error');
     return false;
 };
-

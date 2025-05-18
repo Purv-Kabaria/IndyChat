@@ -81,12 +81,11 @@
             padding: 20px 18px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
             background: transparent;
             scrollbar-width: thin;
             scrollbar-color: #a5b4fc #f5f5f5;
         }
-
         #messages-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -95,6 +94,15 @@
             border-radius: 8px;
         }
 
+        /* Message content styling */
+        .message-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            margin-bottom: 4px;
+        }
+
+        /* Update existing message styles */
         .message {
             max-width: 80%;
             padding: 14px 18px;
@@ -102,9 +110,8 @@
             position: relative;
             animation: messageAppear 0.3s ease;
             font-size: 15px;
-            line-height: 1.6;
             box-shadow: 0 2px 8px rgba(33,150,243,0.06);
-            word-break: break-word;
+            margin-bottom: 12px;
         }
 
         .user-message {
@@ -114,6 +121,7 @@
             color: #1a237e;
             font-weight: 500;
             box-shadow: 0 2px 8px rgba(33,150,243,0.13);
+            margin-left: auto;
         }
 
         .bot-message {
@@ -123,6 +131,7 @@
             color: var(--text-color);
             font-weight: 500;
             border: 1px solid #e3e8ee;
+            margin-right: auto;
         }
 
         .message-timestamp {
@@ -326,7 +335,10 @@
         
         <div id="messages-container"></div>
         
+        <div id="typing-indicator" class="hidden">Assistant is typing...</div>
+        
         <div class="chat-input-container">
+            <div id="loading" class="hidden">Sending message...</div>
             <div id="status" class="status"></div>
             <div id="file-preview">
                 <span id="file-name"></span>
