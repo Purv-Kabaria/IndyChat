@@ -24,11 +24,11 @@ module.exports = {
 				background: 'hsl(var(--background))',		
 				foreground: 'hsl(var(--foreground))',		
 				primary: {		
-					DEFAULT: '#005f73',		
+					DEFAULT: '#EEEEEE',		
 					foreground: 'hsl(var(--primary-foreground))'		
 				},		
 				secondary: {		
-					DEFAULT: '#0a9396',		
+					DEFAULT: '#ed1c24',		
 					foreground: 'hsl(var(--secondary-foreground))'		
 				},		
 				destructive: {		
@@ -40,7 +40,7 @@ module.exports = {
 					foreground: 'hsl(var(--muted-foreground))'		
 				},		
 				accent: {		
-					DEFAULT: '#94d2bd',		
+					DEFAULT: '#14284b',		
 					foreground: 'hsl(var(--accent-foreground))'		
 				},		
 				popover: {		
@@ -82,7 +82,11 @@ module.exports = {
 				'accordion-down': 'accordion-down 0.2s ease-out',		
 				'accordion-up': 'accordion-up 0.2s ease-out',		
 				'fade-in': 'fadeIn 0.8s ease forwards'		
-			}		
+			},
+			fontFamily: {
+				cal: ['Cal-Sans', 'sans-serif'],
+				mont: ['Montserrat', 'sans-serif'],
+			},
 		}		
 	},		
 plugins: [require("tailwindcss-animate")],		

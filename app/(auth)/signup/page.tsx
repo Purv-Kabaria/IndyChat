@@ -86,7 +86,17 @@ function SignupPageContent() {
           if (data.session && forceRedirect !== 'false') {
             console.log("Active session detected, preparing redirect");
             
-            // If email is not verified, redirect to verification
+            // Check if this is a Google OAuth user - they don't need email verification
+            const isOAuthProvider = data.session.user.app_metadata?.provider === 'google';
+            
+            // Google OAuth users always skip verification
+            if (isOAuthProvider) {
+              console.log("OAuth user detected, redirecting to chat");
+              router.push("/chat");
+              return;
+            }
+            
+            // If email is not verified for password-based auth, redirect to verification
             if (data.session.user.email && !data.session.user.email_confirmed_at) {
               console.log("Unverified email, redirecting to verification");
               router.push(`/verify?email=${encodeURIComponent(data.session.user.email)}`);
@@ -210,8 +220,8 @@ function SignupPageContent() {
       
       // Use setTimeout to show the success message before redirecting
       setTimeout(() => {
-        // Redirect to verification page with email
-        router.push(`/verify?email=${encodeURIComponent(email)}`);
+        // Redirect to verification page with email and explicit redirect to chat
+        router.push(`/verify?email=${encodeURIComponent(email)}&redirectTo=/chat`);
       }, 2000);
     } catch (error: unknown) {
       console.error("Signup error:", error);
@@ -272,14 +282,7 @@ function SignupPageContent() {
     console.log("Starting Google sign in process...");
     
     try {
-      // Get the redirect URL, adding it as a parameter to the callback
-      const redirectTo = getRedirectUrl();
-      const callbackUrl = new URL(`${window.location.origin}/api/auth/callback`);// Path to match actual route at app/api/auth/callback
-      callbackUrl.searchParams.set('redirectTo', redirectTo);
-      
-      console.log("Google OAuth request with redirect to:", callbackUrl.toString());
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/api/auth/callback`,
@@ -288,7 +291,6 @@ function SignupPageContent() {
 
       console.log("Google OAuth response:", {
         success: !error,
-        hasData: !!data,
         error: error ? {
           message: error.message,
           status: error.status
@@ -307,7 +309,7 @@ function SignupPageContent() {
   // Don't render the form until the session check is complete
   if (!sessionChecked) {
     return (
-      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
         <div className="flex flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
           <p className="text-sm text-gray-500">Checking authentication...</p>
@@ -317,7 +319,7 @@ function SignupPageContent() {
   }
   
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-cal font-bold text-accent">IndyChat</h1>
@@ -466,7 +468,7 @@ function SignupPageContent() {
 // Loading fallback component
 function SignupPageFallback() {
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="flex flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
         <p className="mt-2 text-sm text-gray-500">Loading signup page...</p>

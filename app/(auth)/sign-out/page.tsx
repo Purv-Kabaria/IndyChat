@@ -47,7 +47,7 @@ export default function SignOutPage() {
   }, [router, supabase.auth]);
   
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <h1 className="text-3xl font-cal font-bold text-accent mb-4">Signing Out</h1>
         

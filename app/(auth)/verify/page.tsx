@@ -50,9 +50,9 @@ function VerifyPageContent() {
             console.log("Email already verified, redirecting...");
             setMessage("Your email is already verified! Redirecting...");
             
-            // Redirect after a short delay
+            // Always redirect to chat after verification
             setTimeout(() => {
-              router.push(redirectTo);
+              router.push('/chat');
             }, 2000);
           }
         }
@@ -93,9 +93,9 @@ function VerifyPageContent() {
       
       // Redirect after successful verification
       setTimeout(() => {
-        // If we have an active session, redirect directly to the app
+        // If we have an active session, redirect directly to the chat app
         if (sessionData?.session) {
-          router.push(redirectTo);
+          router.push('/chat');
         } else {
           // If no session, redirect to login with a success message
           router.push(`/login?message=${encodeURIComponent("Account verified successfully. You can now log in.")}`);
@@ -150,7 +150,7 @@ function VerifyPageContent() {
   // Show loading while we check session
   if (sessionChecking) {
     return (
-      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
         <div className="flex flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
           <p className="text-sm text-gray-500">Checking verification status...</p>
@@ -160,7 +160,7 @@ function VerifyPageContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-cal font-bold text-accent">Verify Email</h1>
@@ -234,7 +234,7 @@ function VerifyPageContent() {
 // Loading fallback component
 function VerifyPageFallback() {
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="flex flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
         <p className="mt-2 text-sm text-gray-500">Loading verification page...</p>

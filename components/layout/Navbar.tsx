@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  // Disable body scroll when mobile menu is open
   useEffect(() => {
     if (isMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -26,7 +25,6 @@ const Navbar = () => {
     setIsMenuOpen(!isMenuOpen);
   };
   
-  // Smooth scroll implementation
   const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault();
     setIsMenuOpen(false);
@@ -40,7 +38,6 @@ const Navbar = () => {
     }
   };
   
-  // Menu animation variants
   const menuVariants = {
     closed: {
       opacity: 0,
@@ -94,47 +91,47 @@ const Navbar = () => {
         <div className="hidden lg:flex items-center space-x-10">
           <a 
             href="#home" 
-            className="text-[#333] font-medium hover:text-primary"
+            className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'home')}
           >
             Home
           </a>
           <a 
             href="#features" 
-            className="text-[#333] font-medium hover:text-primary"
+            className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'features')}
           >
             Features
           </a>
           <a 
             href="#how-it-works" 
-            className="text-[#333] font-medium hover:text-primary"
+            className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'how-it-works')}
           >
             How It Works
           </a>
           <a 
             href="#testimonials" 
-            className="text-[#333] font-medium hover:text-primary"
+            className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'testimonials')}
           >
             Testimonials
           </a>
-          <Link href="/about" className="text-[#333] font-medium hover:text-primary">About Us</Link>
-          <Link href="/contact" className="text-[#333] font-medium hover:text-primary">Contact</Link>
+          <Link href="/about" className="text-[#333] font-medium hover:text-secondary">About Us</Link>
+          <Link href="/contact" className="text-[#333] font-medium hover:text-secondary">Contact</Link>
         </div>
         
         {/* Desktop Auth Buttons */}
         <div className="hidden lg:flex items-center space-x-4">
           <Link 
             href="/login" 
-            className="px-8 py-3 border border-[#243b5f] rounded-md text-[#243b5f] hover:bg-gray-50"
+            className="px-8 py-3 border border-accent rounded-md text-accent hover:bg-accent/10"
           >
             Login
           </Link>
           <Link 
             href="/signup" 
-            className="px-8 py-3 bg-[#243b5f] text-white rounded-md hover:bg-[#1a2c42]"
+            className="px-8 py-3 bg-accent text-white rounded-md hover:bg-accent/80"
           >
             Sign Up
           </Link>
@@ -142,7 +139,7 @@ const Navbar = () => {
         
         {/* Mobile Menu Button */}
         <motion.button 
-          className="lg:hidden text-[#243b5f] text-2xl"
+          className="lg:hidden text-accent text-2xl"
           onClick={toggleMenu}
           aria-label="Toggle navigation menu"
           title="Toggle Menu"
