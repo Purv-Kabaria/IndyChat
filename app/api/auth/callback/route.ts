@@ -18,21 +18,28 @@ export async function GET(request: NextRequest) {
     if (session) {
       const isOAuthProvider = session.user.app_metadata?.provider === 'google';
       
+      // Use site URL from environment if available
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+      
       if (isOAuthProvider) {
-        return NextResponse.redirect(new URL('/chat', request.url));
+        return NextResponse.redirect(new URL('/chat', baseUrl));
       }
       
       if (session.user.email && !session.user.email_confirmed_at) {
         return NextResponse.redirect(
-          new URL(`/verify?email=${encodeURIComponent(session.user.email)}&redirectTo=/chat`, request.url)
+          new URL(`/verify?email=${encodeURIComponent(session.user.email)}&redirectTo=/chat`, baseUrl)
         );
       }
       
-      return NextResponse.redirect(new URL('/chat', request.url));
+      return NextResponse.redirect(new URL('/chat', baseUrl));
     }
     
-    return NextResponse.redirect(new URL('/login', request.url));
+    // Use site URL from environment if available
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+    return NextResponse.redirect(new URL('/login', baseUrl));
   }
 
-  return NextResponse.redirect(new URL('/login', request.url));
+  // Use site URL from environment if available
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+  return NextResponse.redirect(new URL('/login', baseUrl));
 } 
