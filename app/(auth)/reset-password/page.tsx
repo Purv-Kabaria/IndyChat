@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 
+type AuthError = {
+  message: string;
+};
+
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -20,15 +22,15 @@ export default function ResetPasswordPage() {
     setMessage(null);
 
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/update-password`,
       });
 
       if (error) throw error;
       
       setMessage("Check your email for a password reset link");
-    } catch (error: any) {
-      setError(error.message || "An error occurred");
+    } catch (error: unknown) {
+      setError((error as AuthError).message || "An error occurred");
     } finally {
       setLoading(false);
     }

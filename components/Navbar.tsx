@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 
 const Navbar = () => {
@@ -16,7 +17,13 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
-          <img src="../public/images/indianapolis.png" alt="IndyChat Logo" className="h-[50px] w-[50px]" />
+          <Image 
+            src="/images/indianapolis.png" 
+            alt="IndyChat Logo" 
+            width={50} 
+            height={50} 
+            className="object-contain"
+          />
           <span>IndyChat</span>
         </Link>
         
@@ -62,7 +69,13 @@ const Navbar = () => {
         <div className="fixed inset-0 z-50 bg-white">
           <div className="pt-4 px-8 flex justify-between items-center border-b border-gray-100 pb-4">
             <Link href="/" className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
-              <img src="/indianapolis.png" alt="IndyChat Logo" className="h-[50px] w-[50px]" />
+              <Image 
+                src="/images/indianapolis.png" 
+                alt="IndyChat Logo" 
+                width={50} 
+                height={50} 
+                className="object-contain"
+              />
               <span>IndyChat</span>
             </Link>
             <button 

@@ -79,12 +79,11 @@ export function createSafeIframe(iframeHtml: string, isMobile: boolean): React.R
 
     return (
       <div
-        className="overflow-hidden rounded-lg"
-        style={{ 
-          width: styleWidth, 
-          height: styleHeight, 
-          maxWidth: "100%"
-        }}
+        className="iframe-container iframe-container-desktop"
+        style={{
+          '--iframe-width': styleWidth,
+          '--iframe-height': styleHeight
+        } as React.CSSProperties}
       >
         <iframe {...iframeProps} />
       </div>

@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 
+type AuthError = {
+  message: string;
+  code?: string;
+};
+
+type SessionData = {
+  session: {
+    user: {
+      id: string;
+    };
+  } | null;
+};
+
 export default function UpdatePasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -16,7 +29,9 @@ export default function UpdatePasswordPage() {
   useEffect(() => {
     // Check if user is authenticated
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession() as { 
+        data: SessionData 
+      };
       if (!data.session) {
         router.push("/login?message=Your password reset link has expired");
       }
@@ -45,7 +60,7 @@ export default function UpdatePasswordPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         password,
       });
 
@@ -57,8 +72,9 @@ export default function UpdatePasswordPage() {
       setTimeout(() => {
         router.push("/login?message=Password updated successfully");
       }, 2000);
-    } catch (error: any) {
-      setError(error.message || "An error occurred");
+    } catch (error: unknown) {
+      const authError = error as AuthError;
+      setError(authError.message || "An error occurred");
     } finally {
       setLoading(false);
     }

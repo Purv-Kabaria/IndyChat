@@ -6,6 +6,19 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 
+type VerificationError = {
+  message: string;
+  code?: string;
+};
+
+type SessionData = {
+  session: {
+    user: {
+      email_confirmed_at?: string;
+    };
+  } | null;
+};
+
 export default function VerifyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,13 +31,15 @@ export default function VerifyPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(true);
-  const [emailVerified, setEmailVerified] = useState(false);
 
   // Check if user is already authenticated and if their email is verified
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession() as { 
+          data: SessionData; 
+          error: VerificationError | null 
+        };
         
         if (error) {
           console.error("Error checking session:", error);
@@ -33,7 +48,6 @@ export default function VerifyPage() {
           // If user has a session, check if email is verified
           if (data.session.user.email_confirmed_at) {
             console.log("Email already verified, redirecting...");
-            setEmailVerified(true);
             setMessage("Your email is already verified! Redirecting...");
             
             // Redirect after a short delay
@@ -42,8 +56,9 @@ export default function VerifyPage() {
             }, 2000);
           }
         }
-      } catch (err) {
-        console.error("Unexpected error during session check:", err);
+      } catch (err: unknown) {
+        const sessionError = err as VerificationError;
+        console.error("Unexpected error during session check:", sessionError.message);
       } finally {
         setSessionChecking(false);
       }
@@ -63,7 +78,7 @@ export default function VerifyPage() {
         throw new Error("Please enter a valid verification code (at least 6 characters)");
       }
       
-      const { data, error } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
         type: "signup"
@@ -71,7 +86,6 @@ export default function VerifyPage() {
 
       if (error) throw error;
       
-      setEmailVerified(true);
       setMessage("Email verified successfully! Redirecting...");
       
       // Try to get session after verification
@@ -88,11 +102,12 @@ export default function VerifyPage() {
         }
       }, 2000);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Verification error:", error);
       
       // Provide more helpful error messages based on the error
-      let errorMessage = error.message || "Invalid or expired code. Please try again.";
+      const verifyError = error as VerificationError;
+      let errorMessage = verifyError.message || "Invalid or expired code. Please try again.";
       
       if (errorMessage.includes("expired")) {
         errorMessage = "Your verification code has expired. Please request a new one.";
@@ -116,7 +131,7 @@ export default function VerifyPage() {
     setError(null);
     
     try {
-      const { data, error } = await supabase.auth.resend({
+      const { error } = await supabase.auth.resend({
         type: "signup",
         email: email
       });
@@ -124,8 +139,9 @@ export default function VerifyPage() {
       if (error) throw error;
       
       setMessage("A new verification code has been sent to your email");
-    } catch (error: any) {
-      setError(error.message || "Failed to resend verification code");
+    } catch (error: unknown) {
+      const resendError = error as VerificationError;
+      setError(resendError.message || "Failed to resend verification code");
     } finally {
       setResending(false);
     }
@@ -194,7 +210,7 @@ export default function VerifyPage() {
 
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>
-            Didn't receive a code?{" "}
+            Don&apos;t receive a code?{" "}
             <button 
               onClick={handleResendOTP}
               disabled={resending}

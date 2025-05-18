@@ -12,7 +12,7 @@ const Footer = () => {
           </h3>
           <div>
             <p className="text-[#bbb] mb-6 leading-7">
-              Your 24/7 digital assistant for navigating life in Indianapolis. We're here to help you discover and connect with your city.
+              Your 24/7 digital assistant for navigating life in Indianapolis. We&apos;re here to help you discover and connect with your city.
             </p>
             <div className="flex gap-4 mt-6">
               <a href="#" aria-label="Facebook" className="flex items-center justify-center w-10 h-10 bg-white/10 rounded-full text-white transition-all duration-300 hover:bg-highlight hover:translate-y-[-3px]">
@@ -129,7 +129,7 @@ const Footer = () => {
         </div>
       </div>
       <div className="text-center pt-12 mt-12 border-t border-white/10 text-[#aaa] text-sm">
-        <p>&copy; 2023 IndyChat. All rights reserved. Proudly serving the Indianapolis community.</p>
+        <p>&copy; 2023 IndyChat. All rights reserved. Proudly serving the Indianapolis community&apos;s needs.</p>
       </div>
     </footer>
   );

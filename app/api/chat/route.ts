@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+type ChatError = {
+  message: string;
+  stack?: string;
+  details?: unknown;
+};
+
+type FileData = {
+  type: string;
+  transfer_method: 'local_file';
+  upload_file_id: string;
+};
+
+type RequestBody = {
+  inputs: Record<string, unknown>;
+  query: string;
+  response_mode: string;
+  user: string;
+  conversation_id?: string;
+  files?: FileData[];
+};
+
 const DIFY_API_KEY = process.env.DIFY_API_KEY;
 const DIFY_API_URL = "https://api.dify.ai/v1/chat-messages";
 
@@ -22,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const userId = userIdFromRequest || "website-user-" + Date.now().toString().slice(-6);
 
-    const requestBody: any = {
+    const requestBody: RequestBody = {
       inputs: {},
       query: query,
       response_mode: "streaming",
@@ -62,8 +83,8 @@ export async function POST(req: NextRequest) {
 
     if (!difyResponse.ok) {
       const errorText = await difyResponse.text();
-      let errorJson = {};
-      try { errorJson = JSON.parse(errorText); } catch(e) {}
+      let errorJson: unknown = {};
+      try { errorJson = JSON.parse(errorText); } catch {}
       console.error("API Chat Route: Dify API returned an error:", difyResponse.status, errorText);
       return new NextResponse(JSON.stringify({ error: `Dify API Error: ${difyResponse.status}`, details: errorJson || errorText }), {
         status: difyResponse.status,
@@ -71,10 +92,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-     if (!difyResponse.body) {
-        console.error("API Chat Route: Dify response body is null after OK status");
-        return NextResponse.json({ error: "Dify response body is null" }, { status: 500 });
-      }
+    if (!difyResponse.body) {
+      console.error("API Chat Route: Dify response body is null after OK status");
+      return NextResponse.json({ error: "Dify response body is null" }, { status: 500 });
+    }
 
     const responseStream = difyResponse.body;
 
@@ -86,11 +107,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-  } catch (error: any) {
-    console.error("API Chat Route: Caught Internal Server Error:", error);
-    // Log the error stack if available
-    const errorDetails = error.stack || error.message || String(error);
-    return new NextResponse(JSON.stringify({ error: 'Internal Server Error', details: errorDetails }), {
+  } catch (error: unknown) {
+    const chatError = error as ChatError;
+    console.error("API Chat Route: Caught Internal Server Error:", chatError.message);
+    
+    return new NextResponse(JSON.stringify({ 
+      error: 'Internal Server Error', 
+      details: chatError.stack || chatError.message 
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

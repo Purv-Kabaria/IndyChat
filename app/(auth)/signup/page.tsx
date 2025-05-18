@@ -7,6 +7,27 @@ import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 
+type AuthError = {
+  message: string;
+  status?: number;
+  name?: string;
+};
+
+type UserSession = {
+  user: {
+    email: string;
+    email_confirmed_at?: string;
+    confirmation_sent_at?: string;
+  } | null;
+  session: {
+    user: {
+      id: string;
+      email?: string;
+      email_confirmed_at?: string;
+    };
+  } | null;
+};
+
 export default function SignupPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
@@ -17,9 +38,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [envStatus, setEnvStatus] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [currentSession, setCurrentSession] = useState<any>(null);
+  const [currentSession, setCurrentSession] = useState<UserSession | null>(null);
 
   // Verify environment variables and Supabase client on component mount
   // Also check session status to handle already authenticated users
@@ -160,7 +180,6 @@ export default function SignupPage() {
       // Check if the user has already confirmed their email
       if (data?.user?.email_confirmed_at) {
         console.log("Email already verified, redirecting to dashboard...");
-        setSuccessMessage("Account created successfully! Redirecting to dashboard...");
         
         setTimeout(() => {
           router.push("/chat");
@@ -175,7 +194,6 @@ export default function SignupPage() {
       });
       
       console.log("Signup successful, redirecting to verification page...");
-      setSuccessMessage("Account created! Please check your email for verification instructions.");
       
       // Check if the verification email was sent
       if (data?.user?.confirmation_sent_at) {
@@ -189,33 +207,35 @@ export default function SignupPage() {
         // Redirect to verification page with email
         router.push(`/verify?email=${encodeURIComponent(email)}`);
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Signup error:", error);
       
       // Enhanced error reporting
       let errorMessage = "An error occurred during signup";
       
-      if (error.message) {
-        errorMessage = error.message;
+      const authError = error as AuthError;
+      
+      if (authError.message) {
+        errorMessage = authError.message;
       }
       
-      if (error.status) {
-        errorMessage += ` (Status: ${error.status})`;
+      if (authError.status) {
+        errorMessage += ` (Status: ${authError.status})`;
       }
       
       // Check for specific error types and provide more helpful messages
-      if (error.message?.includes("already registered")) {
+      if (errorMessage.includes("already registered")) {
         errorMessage = "This email is already registered. Please try logging in instead.";
         
         // Offer option to navigate to login
         setTimeout(() => {
           router.push("/login");
         }, 5000);
-      } else if (error.message?.includes("network")) {
+      } else if (errorMessage.includes("network")) {
         errorMessage = "Network error. Please check your internet connection and try again.";
-      } else if (error.message?.includes("email verification")) {
+      } else if (errorMessage.includes("email verification")) {
         errorMessage = "There was an issue sending the verification email. Please try again or contact support.";
-      } else if (error.message?.includes("rate limit")) {
+      } else if (errorMessage.includes("rate limit")) {
         errorMessage = "Too many signup attempts. Please try again later.";
       }
       
@@ -274,9 +294,10 @@ export default function SignupPage() {
       });
 
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Google sign in error:", error);
-      setError(error.message || "An error occurred with Google sign in");
+      const authError = error as AuthError;
+      setError(authError.message || "An error occurred with Google sign in");
       setLoading(false);
     }
   };
