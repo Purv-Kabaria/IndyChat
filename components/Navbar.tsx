@@ -1,19 +1,82 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Disable body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
   
+  // Smooth scroll implementation
+  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    setIsMenuOpen(false);
+    
+    const targetElement = document.getElementById(targetId);
+    if (targetElement) {
+      window.scrollTo({
+        top: targetElement.offsetTop,
+        behavior: 'smooth'
+      });
+    }
+  };
+  
+  // Menu animation variants
+  const menuVariants = {
+    closed: {
+      opacity: 0,
+      x: "100%",
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40
+      }
+    },
+    open: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40
+      }
+    }
+  };
+  
+  // Menu item animation variants
+  const menuItemVariants = {
+    closed: { opacity: 0, y: 20 },
+    open: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
+        delay: i * 0.1,
+        duration: 0.4
+      }
+    })
+  };
+  
   return (
-    <nav className="py-4 px-8 bg-white w-full border-b border-gray-100">
+    <nav className="py-4 px-8 bg-white w-full border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
@@ -29,10 +92,34 @@ const Navbar = () => {
         
         {/* Desktop Navigation Links */}
         <div className="hidden lg:flex items-center space-x-10">
-          <a href="#home" className="text-[#333] font-medium hover:text-primary">Home</a>
-          <a href="#features" className="text-[#333] font-medium hover:text-primary">Features</a>
-          <a href="#how-it-works" className="text-[#333] font-medium hover:text-primary">How It Works</a>
-          <a href="#testimonials" className="text-[#333] font-medium hover:text-primary">Testimonials</a>
+          <a 
+            href="#home" 
+            className="text-[#333] font-medium hover:text-primary"
+            onClick={(e) => handleSmoothScroll(e, 'home')}
+          >
+            Home
+          </a>
+          <a 
+            href="#features" 
+            className="text-[#333] font-medium hover:text-primary"
+            onClick={(e) => handleSmoothScroll(e, 'features')}
+          >
+            Features
+          </a>
+          <a 
+            href="#how-it-works" 
+            className="text-[#333] font-medium hover:text-primary"
+            onClick={(e) => handleSmoothScroll(e, 'how-it-works')}
+          >
+            How It Works
+          </a>
+          <a 
+            href="#testimonials" 
+            className="text-[#333] font-medium hover:text-primary"
+            onClick={(e) => handleSmoothScroll(e, 'testimonials')}
+          >
+            Testimonials
+          </a>
           <Link href="/about" className="text-[#333] font-medium hover:text-primary">About Us</Link>
           <Link href="/contact" className="text-[#333] font-medium hover:text-primary">Contact</Link>
         </div>
@@ -54,66 +141,128 @@ const Navbar = () => {
         </div>
         
         {/* Mobile Menu Button */}
-        <button 
+        <motion.button 
           className="lg:hidden text-[#243b5f] text-2xl"
           onClick={toggleMenu}
           aria-label="Toggle navigation menu"
           title="Toggle Menu"
+          whileTap={{ scale: 0.9 }}
         >
           {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
+        </motion.button>
       </div>
       
-      {/* Mobile Menu Drawer */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-white">
-          <div className="pt-4 px-8 flex justify-between items-center border-b border-gray-100 pb-4">
-            <Link href="/" className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
-              <Image 
-                src="/images/indianapolis.png" 
-                alt="IndyChat Logo" 
-                width={50} 
-                height={50} 
-                className="object-contain"
-              />
-              <span>IndyChat</span>
-            </Link>
-            <button 
-              className="text-[#243b5f] text-2xl"
-              onClick={toggleMenu}
-              title="Close Menu"
-            >
-              <X size={28} />
-            </button>
-          </div>
-          
-          <div className="px-8 py-6 flex flex-col space-y-8">
-            <a href="#home" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>Home</a>
-            <a href="#features" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>Features</a>
-            <a href="#how-it-works" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>How It Works</a>
-            <a href="#testimonials" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>Testimonials</a>
-            <Link href="/about" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>About Us</Link>
-            <Link href="/contact" className="text-[#333] text-xl font-medium" onClick={() => setIsMenuOpen(false)}>Contact</Link>
-            
-            <div className="mt-6 space-y-4 pt-6 border-t border-gray-100">
-              <Link 
-                href="/login" 
-                className="block w-full py-3 px-4 border border-[#243b5f] rounded-md text-[#243b5f] text-center font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Login
+      {/* Mobile Menu Drawer with AnimatePresence */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div 
+            className="fixed inset-0 z-50 bg-white overflow-hidden"
+            initial="closed"
+            animate="open"
+            exit="closed"
+            variants={menuVariants}
+          >
+            <div className="pt-4 px-8 flex justify-between items-center border-b border-gray-100 pb-4">
+              <Link href="/" className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
+                <Image 
+                  src="/images/indianapolis.png" 
+                  alt="IndyChat Logo" 
+                  width={50} 
+                  height={50} 
+                  className="object-contain"
+                />
+                <span>IndyChat</span>
               </Link>
-              <Link 
-                href="/signup" 
-                className="block w-full py-3 px-4 bg-[#243b5f] text-white rounded-md text-center font-medium"
-                onClick={() => setIsMenuOpen(false)}
+              <motion.button 
+                className="text-[#243b5f] text-2xl"
+                onClick={toggleMenu}
+                title="Close Menu"
+                whileTap={{ scale: 0.9 }}
               >
-                Sign Up
-              </Link>
+                <X size={28} />
+              </motion.button>
             </div>
-          </div>
-        </div>
-      )}
+            
+            <div className="px-8 py-6 flex flex-col space-y-8">
+              <motion.a 
+                href="#home" 
+                className="text-[#333] text-xl font-medium" 
+                onClick={(e) => handleSmoothScroll(e, 'home')}
+                custom={0}
+                variants={menuItemVariants}
+              >
+                Home
+              </motion.a>
+              <motion.a 
+                href="#features" 
+                className="text-[#333] text-xl font-medium" 
+                onClick={(e) => handleSmoothScroll(e, 'features')}
+                custom={1}
+                variants={menuItemVariants}
+              >
+                Features
+              </motion.a>
+              <motion.a 
+                href="#how-it-works" 
+                className="text-[#333] text-xl font-medium" 
+                onClick={(e) => handleSmoothScroll(e, 'how-it-works')}
+                custom={2}
+                variants={menuItemVariants}
+              >
+                How It Works
+              </motion.a>
+              <motion.a 
+                href="#testimonials" 
+                className="text-[#333] text-xl font-medium" 
+                onClick={(e) => handleSmoothScroll(e, 'testimonials')}
+                custom={3}
+                variants={menuItemVariants}
+              >
+                Testimonials
+              </motion.a>
+              <motion.div custom={4} variants={menuItemVariants}>
+                <Link 
+                  href="/about" 
+                  className="text-[#333] text-xl font-medium" 
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  About Us
+                </Link>
+              </motion.div>
+              <motion.div custom={5} variants={menuItemVariants}>
+                <Link 
+                  href="/contact" 
+                  className="text-[#333] text-xl font-medium" 
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Contact
+                </Link>
+              </motion.div>
+              
+              <motion.div 
+                className="mt-6 space-y-4 pt-6 border-t border-gray-100"
+                custom={6}
+                variants={menuItemVariants}
+              >
+                <Link 
+                  href="/login" 
+                  className="block w-full py-3 px-4 border border-[#243b5f] rounded-md text-[#243b5f] text-center font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Login
+                </Link>
+                <Link 
+                  href="/signup" 
+                  className="block w-full py-3 px-4 bg-[#243b5f] text-white rounded-md text-center font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sign Up
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };

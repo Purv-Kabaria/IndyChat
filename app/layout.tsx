@@ -1,5 +1,7 @@
-import './globals.css'
+import './globals.css';
+import PageTransition from '../components/PageTransition';
 
+// This must remain a server component
 export const metadata = {
   title: 'IndyChat',
   description: 'Chatbot for Indianapolis',
@@ -15,7 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-mont">{children}</body>
+      <body className="font-mont">
+        <PageTransition>
+          {children}
+        </PageTransition>
+      </body>
     </html>
   )
 }
