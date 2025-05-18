@@ -1,123 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chrome Extension Popup</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-        #controls {
-            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            margin-top: 10px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 500;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10);
-            transition: background 0.2s, box-shadow 0.2s;
+        :root {
+            --primary-color: #2196F3;
+            --secondary-color: #1976D2;
+            --background-color: #f5f7fa;
+            --chat-bg: #ffffffcc;
+            --user-message-bg: linear-gradient(135deg, #e3f2fd 60%, #bbdefb 100%);
+            --bot-message-bg: #ffffff;
+            --text-color: #22223b;
+            --timestamp-color: #757575;
+            --border-radius: 16px;
+            --shadow: 0 4px 24px rgba(33,150,243,0.07), 0 1.5px 6px rgba(33,150,243,0.05);
         }
 
         body {
-            width: 600px;
-            height: 600px; /* Increased height */
+            width: 400px;
+            height: 600px;
             margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            overflow: hidden;
-           
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f5f7fa 100%);
         }
 
         .container {
             display: flex;
             flex-direction: column;
-            height: 600px; /* Increased height */
-            padding: 16px;
-            box-sizing: border-box;
-            backdrop-filter: blur(8px);
-            border-radius: 20px; /* Increased border radius */
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            background: rgba(255, 255, 255, 0.9);
+            height: 100%;
+            opacity: 1;
+            background: var(--chat-bg);
+            box-shadow: var(--shadow);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            border: 1.5px solid #e3e8ee;
         }
 
-        .controls {
-            margin-bottom: 12px;
+        .header {
+            padding: 18px 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            box-shadow: 0 2px 12px rgba(33,150,243,0.10);
         }
 
-        .status {
-            font-size: 13px;
-            height: 18px;
-            margin-bottom: 8px;
-            color: #6b7280;
-            font-weight: 500;
-        }
-
-        .chat-container {
-            flex-grow: 1;
-            position: relative;
-            border: 1px solid #e0e7ff;
-            border-radius: 20px; /* Increased border radius */
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            background: rgba(255, 255, 255, 0.85);
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
-            transition: box-shadow 0.2s;
-        }
-
-        .chat-header {
-            padding: 16px;
-            background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
-            color: white;
-            font-weight: bold;
-            border-bottom: 1px solid #e0e7ff;
+        .header h1 {
+            margin: 0;
+            font-size: 1.25em;
+            font-weight: 600;
             letter-spacing: 1px;
-            font-size: 20px;
-            border-radius: 20px 20px 0 0; /* Increased border radius */
-            display: flex; /* Added flex display */
-            align-items: center; /* Centered items vertically */
-            justify-content: space-between; /* Spaced items */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 2px 8px rgba(31,38,135,0.10);
         }
 
-       .logo {
-    width: 40px;
-    height: 40px;
-    margin: 0;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(99,102,241,0.18);
-    background: #fff;
-    padding: 3px;
-    object-fit: cover;
-    transition: box-shadow 0.2s, transform 0.2s;
-}
-.logo:hover {
-    box-shadow: 0 4px 24px rgba(99,102,241,0.28);
-    transform: scale(1.06) rotate(-2deg);
-}
+        #refresh-chat {
+            background: rgba(255,255,255,0.12);
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 10px 12px;
+            border-radius: 50%;
+            font-size: 1.1em;
+            transition: background 0.2s, transform 0.2s;
+            box-shadow: 0 2px 8px rgba(33,150,243,0.10);
+        }
 
-        .messages-container {
-            flex-grow: 1;
-            padding: 20px 18px;
+        #refresh-chat:hover {
+            background: rgba(255,255,255,0.25);
+            transform: rotate(180deg) scale(1.08);
+        }
+
+        #messages-container {
+            flex: 1;
             overflow-y: auto;
+            padding: 20px 18px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
             background: transparent;
             scrollbar-width: thin;
             scrollbar-color: #a5b4fc #f5f5f5;
         }
 
-        .messages-container::-webkit-scrollbar {
+        #messages-container::-webkit-scrollbar {
             width: 8px;
         }
-
-        .messages-container::-webkit-scrollbar-thumb {
+        #messages-container::-webkit-scrollbar-thumb {
             background: #a5b4fc;
             border-radius: 8px;
         }
@@ -127,223 +100,250 @@
             padding: 14px 18px;
             border-radius: 22px;
             position: relative;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
+            animation: messageAppear 0.3s ease;
             font-size: 15px;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
-            transition: background 0.2s;
-            line-height: 1.5;
+            line-height: 1.6;
+            box-shadow: 0 2px 8px rgba(33,150,243,0.06);
+            word-break: break-word;
         }
 
         .user-message {
+            background: var(--user-message-bg);
             align-self: flex-end;
-            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
-            color: white;
-            border-bottom-right-radius: 6px;
+            border-bottom-right-radius: 8px;
+            color: #1a237e;
             font-weight: 500;
+            box-shadow: 0 2px 8px rgba(33,150,243,0.13);
         }
 
         .bot-message {
+            background: var(--bot-message-bg);
             align-self: flex-start;
-            background: rgba(243, 244, 246, 0.95);
-            color: #22223b;
-            border-bottom-left-radius: 6px;
+            border-bottom-left-radius: 8px;
+            color: var(--text-color);
             font-weight: 500;
-            border: 1px solid #e0e7ff;
+            border: 1px solid #e3e8ee;
+        }
+
+        .message-timestamp {
+            font-size: 0.75em;
+            color: var(--timestamp-color);
+            margin-top: 4px;
+            text-align: right;
         }
 
         .chat-input-container {
+            padding: 18px 16px 16px 16px;
+            background: rgba(255,255,255,0.97);
+            border-top: 1px solid #e3e8ee;
             display: flex;
-            padding: 16px;
-            border-top: 1px solid #e0e7ff;
-            background: rgba(249, 250, 251, 0.95);
-            align-items: center;
-            gap: 8px;
-            border-radius: 0 0 20px 20px; /* Increased border radius */
+            flex-direction: column;
+            gap: 10px;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            box-shadow: 0 -2px 8px rgba(33,150,243,0.04);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
         }
 
         #message-input {
-            flex-grow: 1;
-            padding: 12px 18px;
-            border: 1.5px solid #e0e7ff;
+            flex: 1;
+            padding: 12px 16px;
+            border: 1.5px solid #e3e8ee;
             border-radius: 22px;
-            margin-right: 10px;
+            resize: none;
+            font-family: inherit;
+            line-height: 1.5;
+            max-height: 100px;
+            min-height: 20px;
             font-size: 15px;
-            outline: none;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255,255,255,0.98);
             transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 1px 4px rgba(99, 102, 241, 0.04);
+            box-shadow: 0 1px 4px rgba(33,150,243,0.04);
         }
 
         #message-input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10);
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(33,150,243,0.10);
         }
-
-        button {
-            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
-            color: white;
-            border: none;
-            padding: 9px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 500;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10);
-            transition: background 0.2s, box-shadow 0.2s;
-        }
-
-        button:hover {
-            background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.18);
-        }
-        
 
         #send-button {
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            background: linear-gradient(135deg, #0d11ed 0%, #60a5fa 100%);
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.13);
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 22px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(33,150,243,0.10);
+            transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
         }
 
         #send-button:hover {
-            background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+            background: linear-gradient(90deg, #1976D2 0%, #2196F3 100%);
+            box-shadow: 0 4px 16px rgba(33,150,243,0.18);
+            transform: scale(1.05);
         }
 
-        #loading {
-            position: absolute;
-            inset: 0;
-            background: rgba(255, 255, 255, 0.85);
+        .file-upload-container {
+            position: relative;
             display: flex;
-            justify-content: center;
             align-items: center;
-            z-index: 10;
-            transition: opacity 0.3s ease-out;
-            backdrop-filter: blur(2px);
-            border-radius: 20px; /* Increased border radius */
+            gap: 8px;
         }
 
-        #loading.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #6366f1;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            animation: spin 1.2s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .typing-indicator {
-            display: flex;
-            padding: 14px 22px;
-            background: rgba(243, 244, 246, 0.92);
-            border-radius: 22px;
-            align-self: flex-start;
-            margin-top: 14px;
-            width: fit-content;
-            box-shadow: 0 4px 18px rgba(99, 102, 241, 0.10), 0 1.5px 6px rgba(99, 102, 241, 0.07);
-            border: 1.5px solid #e0e7ff;
-            backdrop-filter: blur(2px);
-        }
-
-        .typing-dot {
-            width: 11px;
-            height: 11px;
-            margin: 0 4px;
-            background: linear-gradient(135deg, #a5b4fc 60%, #6366f1 100%);
-            border-radius: 50%;
-            display: inline-block;
-            opacity: 0.85;
-            box-shadow: 0 1px 4px rgba(99, 102, 241, 0.13);
-        }
-
-        .typing-dot:nth-child(1) {
-            animation: typing 1.4s infinite;
-        }
-
-        .typing-dot:nth-child(2) {
-            animation: typing 1.4s infinite 0.2s;
-        }
-
-        .typing-dot:nth-child(3) {
-            animation: typing 1.4s infinite 0.4s;
-        }
-
-        @keyframes typing {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-8px) scale(1.15); }
-            100% { transform: translateY(0); }
-        }
-
-        .hidden {
+        #file-upload {
             display: none;
         }
 
+        .file-upload-btn {
+            background: none;
+            border: 1.5px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .file-upload-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        #file-preview {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            background: var(--user-message-bg);
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+
+        #file-preview.active {
+            display: flex;
+        }
+
+        #remove-file {
+            background: none;
+            border: none;
+            color: #ff5252;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 1.1em;
+        }
+
+        .status {
+            font-size: 0.98em;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            margin-bottom: 2px;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            opacity: 1;
+        }
+
+        .status.warning {
+            background: #fff3e0;
+            color: #ef6c00;
+            opacity: 1;
+        }
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            opacity: 1;
+        }
+
+        #loading, #typing-indicator {
+            padding: 8px;
+            font-style: italic;
+            color: var(--timestamp-color);
+            text-align: center;
+            font-size: 1em;
+            background: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes messageAppear {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(33,150,243,0.13);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(33,150,243,0.22);
+        }
     </style>
 </head>
 <body>
-     <span id="status" class="status"></span>
     <div class="container">
-        
-        
-        <div class="chat-container">
-            <div class="chat-header">
-    <div style="display: flex; align-items: center; gap: 14px;">
-        <img src="images/indianapolis.png" alt="Logo" class="logo" style="box-shadow: 0 2px 12px rgba(99,102,241,0.18); border-radius: 12px; background: #fff; padding: 3px;">
-        <span style="font-size: 22px; font-weight: 600; letter-spacing: 1px; text-shadow: 0 2px 8px rgba(31,38,135,0.10);">IndyChat Assistant</span>
-    </div>
-    <button id="refresh-chat" title="Refresh Chat">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M23 4V10H17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M1 20V14H7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M3.51 9.00001C4.01717 7.56552 4.87913 6.2899 6.01547 5.27531C7.1518 4.26072 8.52547 3.53436 10.0083 3.16426C11.4911 2.79417 13.0348 2.79271 14.5185 3.16033C16.0022 3.52794 17.3777 4.25204 18.516 5.26501L23 10M1 14L5.484 18.735C6.62235 19.748 7.99787 20.4721 9.48157 20.8397C10.9653 21.2073 12.5089 21.2058 13.9917 20.8357C15.4745 20.4657 16.8482 19.7393 17.9845 18.7247C19.1209 17.7101 19.9828 16.4345 20.49 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    </button>
-</div>
-            <div id="messages-container" class="messages-container">
-                <div class="bot-message message">
-                    Hello! I'm your IndyChat assistant. How can I help you today?
-                </div>
-            </div>
-            <div id="typing-indicator" class="typing-indicator hidden">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-            </div>
-            <div class="chat-input-container">
-                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
-                <button id="send-button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
-            <div id="loading" class="hidden">
-                <div class="loader"></div>
-            </div>
+        <div class="header">
+            <h1>
+                <img src="images/indianapolis.png" alt="Logo" style="height:28px;width:28px;margin-right:8px;border-radius:8px;box-shadow:0 2px 8px rgba(33,150,243,0.13);background:#fff;">
+                IndyChat Assistant
+            </h1>
+            <button id="refresh-chat" title="Refresh Chat">↺</button>
         </div>
-        <button id="openApp">Open App</button>
-       
+        
+        <div id="messages-container"></div>
+        
+        <div class="chat-input-container">
+            <div id="status" class="status"></div>
+            <div id="file-preview">
+                <span id="file-name"></span>
+                <button id="remove-file" title="Remove file">✕</button>
+            </div>
+            <div class="input-row">
+                <div class="file-upload-container">
+                    <label for="file-upload" class="file-upload-btn">📎</label>
+                    <input type="file" id="file-upload" accept="image/*,.pdf,.doc,.docx,.txt">
+                </div>
+                <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+                <button id="send-button">Send</button>
+            </div>
+            <div id="loading" class="hidden">Sending...</div>
+            <div id="typing-indicator" class="hidden">Assistant is typing...</div>
+        </div>
     </div>
-       
-            
-     
     <script src="popup.js"></script>
 </body>
 </html>

@@ -1,5 +1,14 @@
 import { NextConfig } from 'next';
 
+// Validate that DIFY_API_KEY exists
+if (!process.env.DIFY_API_KEY) {
+  throw new Error(
+    'API configuration error: DIFY_API_KEY environment variable is missing. ' +
+    'Make sure you have an .env file in your project root with DIFY_API_KEY defined. ' +
+    'If you just created the .env file, try restarting your development server.'
+  );
+}
+
 const nextConfig: NextConfig = {
   /* config options here */
   env: {
