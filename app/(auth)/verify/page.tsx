@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -19,7 +19,7 @@ type SessionData = {
   } | null;
 };
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
@@ -228,5 +228,25 @@ export default function VerifyPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function VerifyPageFallback() {
+  return (
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <p className="mt-2 text-sm text-gray-500">Loading verification page...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<VerifyPageFallback />}>
+      <VerifyPageContent />
+    </Suspense>
   );
 } 

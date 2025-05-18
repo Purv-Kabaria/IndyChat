@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -28,7 +28,7 @@ type UserSession = {
   } | null;
 };
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -74,7 +74,13 @@ export default function SignupPage() {
           setEnvStatus("Error retrieving session");
         } else {
           // Store the session for use in rendering
-          setCurrentSession(data.session);
+          setCurrentSession(data.session ? {
+            user: {
+              email: data.session.user.email || '',
+              email_confirmed_at: data.session.user.email_confirmed_at
+            },
+            session: data.session
+          } : null);
           
           // Only auto-redirect if a session exists and forceRedirect is not explicitly 'false'
           if (data.session && forceRedirect !== 'false') {
@@ -276,11 +282,7 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: callbackUrl.toString(),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
+          redirectTo: `${window.location.origin}/api/auth/callback`,
         },
       });
 
@@ -458,5 +460,25 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function SignupPageFallback() {
+  return (
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <p className="mt-2 text-sm text-gray-500">Loading signup page...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupPageFallback />}>
+      <SignupPageContent />
+    </Suspense>
   );
 } 

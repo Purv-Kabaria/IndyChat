@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
@@ -18,7 +18,7 @@ type SessionData = {
   } | null;
 };
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordPageContent() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -140,5 +140,25 @@ export default function UpdatePasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function UpdatePasswordPageFallback() {
+  return (
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+      <div className="flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <p className="mt-2 text-sm text-gray-500">Loading update password page...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense fallback={<UpdatePasswordPageFallback />}>
+      <UpdatePasswordPageContent />
+    </Suspense>
   );
 } 

@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
+    "@tailwindcss/aspect-ratio": "^0.4.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { Loader2 } from "lucide-react";
 
 const ChatComponent = dynamic(
-  () => import('../../components/ChatComponent'),
+  () => import('@/components/ChatComponent'),
   { 
     ssr: false,
     loading: () => (
