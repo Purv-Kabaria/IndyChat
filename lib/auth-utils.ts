@@ -15,14 +15,10 @@ export type UserProfile = {
   last_sign_in_at: string | null;
 };
 
-/**
- * Gets the current user's role from their profile
- */
 export async function getUserRole(session?: Session | null): Promise<UserRole | null> {
   const supabase = createClientComponentClient();
   
   try {
-    // If no session is provided, get it
     if (!session) {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession?.user) return null;
@@ -47,21 +43,16 @@ export async function getUserRole(session?: Session | null): Promise<UserRole | 
   }
 }
 
-/**
- * Checks if the current user has the admin role
- */
 export async function isAdmin(session?: Session | null): Promise<boolean> {
   const supabase = createClientComponentClient();
   
   try {
-    // If no session is provided, get it
     if (!session) {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession?.user) return false;
       session = currentSession;
     }
     
-    // Direct database query to check role
     const { data, error } = await supabase
       .from('profiles')
       .select('role')
@@ -80,14 +71,10 @@ export async function isAdmin(session?: Session | null): Promise<boolean> {
   }
 }
 
-/**
- * Updates a user's role
- */
 export async function updateUserRole(userId: string, role: UserRole): Promise<boolean> {
   const supabase = createClientComponentClient();
   
   try {
-    // Check if current user is an admin
     const currentUserRole = await getUserRole();
     if (currentUserRole !== 'admin') {
       console.error('Only admins can update user roles');
@@ -111,14 +98,10 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<bo
   }
 }
 
-/**
- * Gets a complete list of all user profiles (admin only)
- */
 export async function getAllUsers(): Promise<UserProfile[] | null> {
   const supabase = createClientComponentClient();
   
   try {
-    // Check if current user is an admin
     const currentUserRole = await getUserRole();
     if (currentUserRole !== 'admin') {
       console.error('Only admins can retrieve all users');
