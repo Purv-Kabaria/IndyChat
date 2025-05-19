@@ -2,9 +2,6 @@ import { Message, DifyFileParam } from "@/types/chat";
 
 const INTERNAL_API_URL = "/api/chat";
 
-/**
- * Sends a message to the backend API and handles streaming the response
- */
 export async function sendMessageToBackend(
   userInput: string,
   userIdToSend: string,
@@ -80,7 +77,6 @@ export async function sendMessageToBackend(
     
     assistantMessageId = generateMessageId();
     
-    // Add placeholder message first
     setMessages((prev) => [
       ...prev,
       {
@@ -96,10 +92,8 @@ export async function sendMessageToBackend(
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Append new data to the buffer
         buffer += decoder.decode(value, { stream: true });
 
-        // Process buffer line by line
         let boundary = buffer.indexOf("\n");
         while (boundary !== -1) {
           const line = buffer.substring(0, boundary).trim();
@@ -107,9 +101,8 @@ export async function sendMessageToBackend(
 
           if (line.startsWith("data: ")) {
             try {
-              const jsonString = line.substring(5).trim(); // Get content after 'data: '
+              const jsonString = line.substring(5).trim();
               if (jsonString) {
-                // Avoid parsing empty strings
                 const data = JSON.parse(jsonString);
 
                 if (!conversationIdFound && data.conversation_id) {
@@ -117,25 +110,18 @@ export async function sendMessageToBackend(
                   conversationIdFound = true;
                 }
 
-                // Handle different event types based on Dify's structure
                 if (data.event === "agent_message" || data.event === "message") {
-                  // Extract the actual content from the response
                   let contentChunk = "";
                   
-                  // Check if this is a JSON format with action_input
                   if (data.answer && typeof data.answer === 'string') {
                     try {
-                      // Try to parse it as JSON
                       const answerObj = JSON.parse(data.answer);
-                      // If it has action_input, use that as the content
                       if (answerObj.action_input) {
                         contentChunk = answerObj.action_input;
                       } else {
-                        // Otherwise use the answer as-is
                         contentChunk = data.answer;
                       }
                     } catch (e) {
-                      // If it's not valid JSON, just use the answer directly
                       contentChunk = data.answer;
                     }
                   } else {
@@ -144,10 +130,8 @@ export async function sendMessageToBackend(
                   
                   if (contentChunk) {
                     setMessages((prev) => {
-                      // Get the current message
                       const currentMsg = prev.find(msg => msg.id === assistantMessageId);
                       
-                      // If this is the first chunk and it looks like JSON, try to extract action_input
                       if (currentMsg && currentMsg.content === "" && contentChunk.trim().startsWith("{")) {
                         try {
                           const jsonContent = JSON.parse(contentChunk);
@@ -159,11 +143,9 @@ export async function sendMessageToBackend(
                             );
                           }
                         } catch (e) {
-                          // Not valid JSON or doesn't have action_input, continue normally
                         }
                       }
                       
-                      // Regular update for streaming chunks
                       return prev.map(msg =>
                         msg.id === assistantMessageId
                           ? { ...msg, content: msg.content + contentChunk }
@@ -173,7 +155,6 @@ export async function sendMessageToBackend(
                   }
                 } else if (data.event === "error") {
                   console.error("Dify stream error event:", data);
-                  // Update the UI to show the specific error from Dify
                   const errorMessage =
                     data.message || "Unknown error from API during response generation";
                   setMessages((prev) =>
@@ -202,7 +183,6 @@ export async function sendMessageToBackend(
         }
       }
       
-      // Final check to clean up any JSON formatting in the complete message
       setMessages((prev) => {
         const currentMsg = prev.find(msg => msg.id === assistantMessageId);
         if (currentMsg && currentMsg.content.trim().startsWith("{")) {
@@ -216,7 +196,6 @@ export async function sendMessageToBackend(
               );
             }
           } catch (e) {
-            // Not valid JSON or doesn't have action_input, leave as is
           }
         }
         return prev;
@@ -247,4 +226,4 @@ export async function sendMessageToBackend(
   } finally {
     setIsLoading(false);
   }
-} 
+}

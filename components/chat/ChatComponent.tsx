@@ -31,11 +31,9 @@ import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
 import SignOutButton from "@/components/SignOutButton";
 
-// Function to extract clean message content from JSON if needed
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
 
-  // Check if the content is a JSON string with action_input
   if (content.trim().startsWith("{") && content.includes('"action_input"')) {
     try {
       const jsonContent = JSON.parse(content);
@@ -43,7 +41,6 @@ const extractMessageContent = (content: string): string => {
         return jsonContent.action_input;
       }
     } catch {
-      // Not valid JSON, return the original content
     }
   }
   return content;
@@ -69,7 +66,6 @@ export default function ChatComponent() {
   const [isMobile, setIsMobile] = useState(false);
   const supabase = createClientComponentClient();
 
-  // TTS state - simplified with our new component
   const { profile } = useUserProfile();
 
   const conversationHistory = [
@@ -244,7 +240,6 @@ export default function ChatComponent() {
     setSidebarOpen(false);
   };
 
-  // Handle speech-to-text transcript
   const handleSTTTranscript = (text: string) => {
     setInput((prev) => {
       const currentInput = prev.trim();
@@ -261,12 +256,10 @@ export default function ChatComponent() {
     exit: { opacity: 0, height: 0 },
   };
 
-  // Process messages to extract iframes and create separate iframe messages
   const processedMessages = useMemo(() => {
     const result: Message[] = [];
 
     messages.forEach((message) => {
-      // First, clean the message content if it's in JSON format
       const cleanedMessage = {
         ...message,
         content: extractMessageContent(message.content),
@@ -281,26 +274,20 @@ export default function ChatComponent() {
         );
 
         if (iframes.length > 0) {
-          // This message contains iframes and needs special processing.
-          // Mark the original message ID as processed ONLY if we are splitting it.
           processedIframeMessagesRef.current.add(cleanedMessage.id);
 
           const textOnlyContent = textSegments.join("\n\n").trim();
-          // Only push the text part if it actually has content.
           if (textOnlyContent) {
             result.push({
-              ...cleanedMessage, // Use original timestamp and potentially other fields
+              ...cleanedMessage,
               content: textOnlyContent,
-              // id remains original message.id for this text part
             });
           }
 
-          // Create a separate message for each iframe.
           iframes.forEach((iframe, i) => {
             result.push({
               role: "assistant",
               content: iframe,
-              // Ensure timestamp is slightly offset to maintain order if needed, and generate a new unique ID.
               timestamp: new Date(
                 cleanedMessage.timestamp.getTime() + (i + 1) * 10
               ),
@@ -308,13 +295,9 @@ export default function ChatComponent() {
             });
           });
         } else {
-          // No iframes in this assistant message, push it as is.
-          // No need to add to processedIframeMessagesRef as there's nothing to split.
           result.push(cleanedMessage);
         }
       } else {
-        // User messages or assistant messages whose iframes have already been extracted.
-        // Or, if it's an assistant message that *was* the text-only part from a previous split.
         result.push(cleanedMessage);
       }
     });
@@ -324,10 +307,10 @@ export default function ChatComponent() {
 
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768); // Tailwind's 'md' breakpoint
+      setIsMobile(window.innerWidth < 768);
     };
     if (typeof window !== "undefined") {
-      checkScreenSize(); // Initial check
+      checkScreenSize();
       window.addEventListener("resize", checkScreenSize);
       return () => window.removeEventListener("resize", checkScreenSize);
     }
@@ -335,7 +318,6 @@ export default function ChatComponent() {
 
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
-      {/* Mobile sidebar toggle */}
       <div className="absolute top-3 left-3 md:hidden z-50">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -344,7 +326,6 @@ export default function ChatComponent() {
         </button>
       </div>
 
-      {/* Sidebar */}
       <div
         className={`bg-accent text-primary flex-shrink-0 flex flex-col transition-all duration-300 shadow-lg 
         ${
@@ -365,7 +346,6 @@ export default function ChatComponent() {
             <h1 className="font-semibold text-lg">Indy Chat</h1>
           </div>
 
-          {/* Close button for mobile */}
           {sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(false)}
@@ -375,7 +355,6 @@ export default function ChatComponent() {
           )}
         </div>
 
-        {/* Rest of sidebar content */}
         <button
           onClick={startNewChat}
           className="mx-3 mt-3 mb-1 flex items-center gap-2 rounded-md border border-primary/20 bg-accent-light p-3 text-sm transition-colors hover:bg-accent-light/80">
@@ -416,9 +395,7 @@ export default function ChatComponent() {
         </div>
       </div>
 
-      {/* Main chat area */}
       <div className="flex-1 flex flex-col h-full max-h-full overflow-hidden relative">
-        {/* Messages container */}
         <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 md:px-8">
           <div className="max-w-3xl mx-auto space-y-6 pt-16 md:pt-12">
             {processedMessages.map((message) => (
@@ -522,7 +499,6 @@ export default function ChatComponent() {
                             {message.content}
                           </ReactMarkdown>
 
-                          {/* Add TTS button for text messages */}
                           {!message.content.includes("<iframe") && (
                             <div className="mt-2 text-xs flex justify-end items-center gap-4">
                               <TTSButton
@@ -607,7 +583,6 @@ export default function ChatComponent() {
           </div>
         </div>
 
-        {/* Input area */}
         <div className="border-t border-accent/10 bg-primary p-4 relative">
           <div className="max-w-3xl mx-auto">
             {uploadedFiles.length > 0 && (
@@ -657,7 +632,6 @@ export default function ChatComponent() {
                   style={{ overflowY: "auto" }}
                 />
 
-                {/* Voice input button - only show if profile exists and STT is enabled */}
                 {profile?.stt_enabled && (
                   <div className="absolute right-28 top-1/2 -translate-y-1/2">
                     <STTButton
@@ -667,7 +641,6 @@ export default function ChatComponent() {
                   </div>
                 )}
 
-                {/* File upload button */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -681,22 +654,17 @@ export default function ChatComponent() {
                   )}
                 </button>
 
-                {/* TTS toggle button - only show if profile exists */}
                 {profile && (
                   <button
                     type="button"
                     onClick={async () => {
                       try {
-                        // Update user metadata
                         const newTtsEnabled = !profile.tts_enabled;
                         await supabase.auth.updateUser({
                           data: {
                             tts_enabled: newTtsEnabled,
                           },
                         });
-
-                        // We no longer need to manage audio directly here
-                        // as that's handled by the TTSButton component
                       } catch (error) {
                         console.error("Error updating TTS setting:", error);
                       }
@@ -718,13 +686,11 @@ export default function ChatComponent() {
                   </button>
                 )}
 
-                {/* STT toggle button - only show if profile exists */}
                 {profile && (
                   <button
                     type="button"
                     onClick={async () => {
                       try {
-                        // Update user metadata
                         const newSttEnabled = !profile.stt_enabled;
                         await supabase.auth.updateUser({
                           data: {

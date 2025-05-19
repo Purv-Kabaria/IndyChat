@@ -2,9 +2,6 @@ import { UploadedFile } from "@/types/chat";
 
 const UPLOAD_API_URL = "/api/upload";
 
-/**
- * Uploads a file to the server and returns the uploaded file info
- */
 export async function uploadFile(
   file: File,
   userIdToSend: string
@@ -29,7 +26,6 @@ export async function uploadFile(
       return null;
     }
 
-    // Determine the appropriate file type for Dify
     const difyType = getDifyFileType(file);
     
     return {
@@ -46,9 +42,6 @@ export async function uploadFile(
   }
 }
 
-/**
- * Determines the appropriate file type category for Dify API
- */
 export function getDifyFileType(file: File): string {
   const extension = file.name.split(".").pop()?.toLowerCase();
   const mimeType = file.type;

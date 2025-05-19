@@ -1,8 +1,5 @@
 "use client";
 
-import { UserProfile } from "@/hooks/useUserProfile";
-
-// Add TypeScript declarations for the Web Speech API
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
@@ -10,17 +7,14 @@ declare global {
   }
 }
 
-// Check if the browser supports the Web Speech API
 export const isSpeechRecognitionSupported = (): boolean => {
   return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 };
 
-// Type for recognition result callback
 export type RecognitionResultCallback = (transcript: string, isFinal: boolean) => void;
 export type RecognitionErrorCallback = (error: any) => void;
 export type RecognitionStateChangeCallback = (isListening: boolean) => void;
 
-// Class to handle speech recognition
 export class SpeechRecognitionHandler {
   private recognition: any;
   private isListening: boolean = false;
@@ -37,7 +31,6 @@ export class SpeechRecognitionHandler {
     this.onErrorCallback = onError;
     this.onStateChangeCallback = onStateChange;
 
-    // Initialize speech recognition
     if (isSpeechRecognitionSupported()) {
       const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
       this.recognition = new SpeechRecognition();
@@ -69,7 +62,6 @@ export class SpeechRecognitionHandler {
   }
 
   private handleEnd() {
-    // Only update state if we're not manually stopping
     if (this.isListening) {
       this.isListening = false;
       this.onStateChangeCallback(false);
@@ -109,7 +101,6 @@ export class SpeechRecognitionHandler {
   }
 }
 
-// Function to check if the user's browser supports speech recognition
 export const checkSpeechRecognitionSupport = (): { supported: boolean; message: string } => {
   if (!isSpeechRecognitionSupported()) {
     return {

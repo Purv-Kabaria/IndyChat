@@ -10,15 +10,11 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-[80vh] max-w-7xl mx-auto bg-white rounded-lg shadow-xl border-2 border-accent/10 overflow-hidden">
-      {/* Mobile Header */}
       <Header onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-      {/* Sidebar */}
       <ChatSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full">
-        {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="flex justify-center items-center h-full">
             <p className="text-accent/60 font-mont text-center">
@@ -27,7 +23,6 @@ export default function ChatInterface() {
           </div>
         </div>
 
-        {/* Input Form */}
         <form className="p-4 border-t border-accent/10 bg-accent/5">
           <div className="flex space-x-2">
             <input

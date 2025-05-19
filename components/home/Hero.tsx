@@ -5,10 +5,10 @@ import { motion } from 'framer-motion';
 
 const Hero = () => {
   return (
-    <div className="w-full bg-[#243b5f] py-40 px-8 flex flex-col items-center justify-center text-center text-white" id="home">
+    <div className="w-full bg-[#243b5f] py-40 lg:py-60 px-8 flex flex-col items-center justify-center text-center text-white" id="home">
       <div className="max-w-[900px] mx-auto">
         <motion.h1 
-          className="text-5xl font-bold mb-6 leading-tight"
+          className="text-3xl lg:text-5xl font-bold mb-6 leading-tight"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
