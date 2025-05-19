@@ -70,40 +70,71 @@ export default function ProfilePage() {
         
         let user = userData.user;
         
-        // Check if this is an OAuth user with missing metadata
-        const isOAuthUser = user.app_metadata?.provider === 'google';
-        const hasMetadata = user.user_metadata?.first_name || user.user_metadata?.last_name;
+        // Check if this user has a complete profile in the database
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
         
-        // Initialize metadata for OAuth users if missing
-        if (isOAuthUser && !hasMetadata) {
-          // Get the raw OAuth data from Google
-          const rawUserData = user.user_metadata?.raw_user_meta_data || {};
-          const googleName = rawUserData.name || '';
-          const googleAvatar = rawUserData.picture || null;
+        // If there's no profile data or important fields are missing, initialize them
+        if (profileError || !profileData || !profileData.first_name || !profileData.last_name) {
+          // For any user (not just OAuth), initialize the database profile with metadata
+          let firstName = user.user_metadata?.first_name || '';
+          let lastName = user.user_metadata?.last_name || '';
+          let avatarUrl = user.user_metadata?.avatar_url || null;
           
-          // Split the name into first and last name
-          const nameParts = googleName.split(' ');
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts.slice(1).join(' ') || '';
+          // For OAuth users specifically, try to get name from raw metadata
+          const isOAuthUser = user.app_metadata?.provider === 'google';
+          if (isOAuthUser && (!firstName || !lastName)) {
+            const rawUserData = user.user_metadata?.raw_user_meta_data || {};
+            const googleName = rawUserData.name || '';
+            avatarUrl = rawUserData.picture || avatarUrl;
+            
+            if (googleName && !firstName && !lastName) {
+              // Split the name into first and last name
+              const nameParts = googleName.split(' ');
+              firstName = nameParts[0] || '';
+              lastName = nameParts.slice(1).join(' ') || '';
+              
+              // Update auth metadata if we got new info from raw data
+              if (firstName || lastName) {
+                const { error: updateError } = await supabase.auth.updateUser({
+                  data: {
+                    first_name: firstName,
+                    last_name: lastName,
+                    avatar_url: avatarUrl,
+                    tts_enabled: false,
+                    stt_enabled: false,
+                  }
+                });
+                
+                if (updateError) {
+                  console.error("Error updating user metadata:", updateError);
+                } else {
+                  // Refresh user data
+                  const { data: refreshedUser } = await supabase.auth.getUser();
+                  if (refreshedUser.user) {
+                    user = refreshedUser.user;
+                  }
+                }
+              }
+            }
+          }
           
-          const { error: updateError } = await supabase.auth.updateUser({
-            data: {
+          // Update the profiles table with the best data we have
+          const { error: updateProfileError } = await supabase
+            .from('profiles')
+            .update({
               first_name: firstName,
               last_name: lastName,
-              avatar_url: googleAvatar,
-              tts_enabled: false,
-              stt_enabled: false,
-            }
-          });
-          
-          if (updateError) {
-            console.error("Error initializing OAuth user metadata:", updateError);
-          } else {
-            // Refresh user data after updating metadata
-            const { data: refreshedUser } = await supabase.auth.getUser();
-            if (refreshedUser.user) {
-              user = refreshedUser.user;
-            }
+              avatar_url: avatarUrl,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+            
+          if (updateProfileError) {
+            console.error("Error updating profile in database:", updateProfileError);
           }
         }
         
@@ -201,8 +232,8 @@ export default function ProfilePage() {
         newAvatarUrl = data.publicUrl;
       }
       
-      // Update user metadata
-      const { error } = await supabase.auth.updateUser({
+      // Update user metadata in auth
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           first_name: firstName,
           last_name: lastName,
@@ -214,7 +245,21 @@ export default function ProfilePage() {
         }
       });
       
-      if (error) throw error;
+      if (authError) throw authError;
+      
+      // IMPORTANT: Also update the profiles table in the database
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          address,
+          avatar_url: newAvatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile?.id);
+      
+      if (profileError) throw profileError;
       
       // Update local state
       if (profile) {

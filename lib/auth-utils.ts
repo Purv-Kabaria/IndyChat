@@ -9,6 +9,7 @@ export type UserProfile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  address: string | null;
   role: UserRole;
   created_at: string;
   updated_at: string;
@@ -108,6 +109,8 @@ export async function getAllUsers(): Promise<UserProfile[] | null> {
       return null;
     }
     
+    // Get users directly from the profiles table - we've updated the profile page
+    // to ensure that user data is saved to both auth metadata and the profiles table
     const { data, error } = await supabase
       .from('profiles')
       .select('*')

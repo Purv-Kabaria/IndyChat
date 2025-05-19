@@ -196,6 +196,8 @@ function SignupPageContent() {
           
         if (profileError) {
           console.error("Error creating profile:", profileError);
+        } else {
+          console.log("Successfully created/updated profile with first and last name");
         }
       }
       
@@ -274,10 +276,20 @@ function SignupPageContent() {
     console.log("Starting Google sign in process...");
     
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Get the current auth status first to handle the case where we're
+      // creating a Supabase auth entry but not creating a profile
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL || ''}/api/auth/callback`,
+          queryParams: {
+            // These will be passed as query params to the Google auth URL
+            // and can be accessed later to enhance our profile
+            prompt: "select_account",
+            access_type: "offline"
+          }
         },
       });
 
@@ -290,6 +302,13 @@ function SignupPageContent() {
       });
 
       if (error) throw error;
+      
+      // Note: For OAuth providers, we can't directly update the profile here
+      // because the auth flow redirects to Google. Instead, we'll have to
+      // handle this in the callback or in the profile page.
+      
+      // We'll add a server-side function or a trigger in Supabase to 
+      // handle this automatically when OAuth users sign in.
     } catch (error: unknown) {
       console.error("Google sign in error:", error);
       const authError = error as AuthError;

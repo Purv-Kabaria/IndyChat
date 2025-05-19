@@ -13,7 +13,6 @@ export default function AdminDashboard() {
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
   const supabase = createClientComponentClient();
 
-  // Load user data on component mount
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -31,7 +30,6 @@ export default function AdminDashboard() {
     loadUsers();
   }, []);
 
-  // Handle toggling a user's admin status
   const handleRoleToggle = async (userId: string, currentRole: string) => {
     setUpdateLoading(userId);
     try {
@@ -44,7 +42,6 @@ export default function AdminDashboard() {
       
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
       
-      // Use the secure RPC function to set admin status
       const { data, error } = await supabase
         .rpc('set_user_as_admin', { 
           admin_id: session.user.id, 
@@ -57,7 +54,6 @@ export default function AdminDashboard() {
       }
       
       if (currentRole === 'admin') {
-        // If demoting from admin to regular user, direct DB update
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ role: 'user' })
@@ -69,7 +65,6 @@ export default function AdminDashboard() {
         }
       }
       
-      // Update the local state
       setUsers(users.map(user => 
         user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user
       ));
@@ -80,13 +75,13 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter users based on search term
   const filteredUsers = users.filter(user => {
     const searchTermLower = searchTerm.toLowerCase();
     return (
       user.email.toLowerCase().includes(searchTermLower) ||
       (user.first_name && user.first_name.toLowerCase().includes(searchTermLower)) ||
-      (user.last_name && user.last_name.toLowerCase().includes(searchTermLower))
+      (user.last_name && user.last_name.toLowerCase().includes(searchTermLower)) ||
+      (user.address && user.address.toLowerCase().includes(searchTermLower))
     );
   });
 
@@ -97,7 +92,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50">
-      {/* Admin Header */}
       <header className="bg-accent text-white p-4 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -117,7 +111,6 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-xl font-semibold mb-6">User Management</h2>
           
-          {/* Search bar */}
           <div className="relative mb-6">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -131,7 +124,6 @@ export default function AdminDashboard() {
             />
           </div>
           
-          {/* Users table */}
           {loading ? (
             <div className="flex justify-center items-center p-12">
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
@@ -143,7 +135,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Sign In</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
                   </tr>
@@ -163,10 +155,10 @@ export default function AdminDashboard() {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {user.first_name || ''} {user.last_name || ''}
+                                {user.first_name || 'N/A'} {user.last_name || 'N/A'}
                               </div>
                               <div className="text-sm text-gray-500">
-                                ID: {user.id.slice(0, 8)}...
+                                ID: {user.id}
                               </div>
                             </div>
                           </div>
@@ -175,7 +167,13 @@ export default function AdminDashboard() {
                           <div className="text-sm text-gray-900">{user.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{formatDate(user.last_sign_in_at)}</div>
+                          <div className="text-sm text-gray-900">
+                            {user.address ? (
+                              <span className="text-gray-700">{user.address}</span>
+                            ) : (
+                              <span className="text-gray-400 italic">No address provided</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{formatDate(user.created_at)}</div>

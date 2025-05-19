@@ -1,4 +1,4 @@
-import AdminRouteGuard from '@/components/AdminRouteGuard';
+import AdminRouteGuard from '@/components/admin/AdminRouteGuard';
 
 export default function AdminLayout({
   children,

@@ -5,16 +5,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Send,
   MenuIcon,
-  Plus,
   Loader2,
   Paperclip,
   X,
   File as FileIcon,
-  Settings,
   Volume2,
   Mic,
   MicOff,
-  Shield,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -25,13 +22,12 @@ import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
-import Link from "next/link";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
-import SignOutButton from "@/components/SignOutButton";
-import { isAdmin, UserRole } from '@/lib/auth-utils';
+import { UserRole } from '@/lib/auth-utils';
+import ChatSidebar from "./ChatSidebar";
 
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -70,12 +66,6 @@ export default function ChatComponent() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
 
   const { profile } = useUserProfile();
-
-  const conversationHistory = [
-    { id: 1, title: "City Services Information", date: "2 days ago" },
-    { id: 2, title: "Trash Collection Schedule", date: "1 week ago" },
-    { id: 3, title: "Parks and Recreation", date: "2 weeks ago" },
-  ];
 
   const generateMessageId = () => {
     const counter = messageIdCounterRef.current;
@@ -186,7 +176,7 @@ export default function ChatComponent() {
   }, []);
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
+    async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement> | React.KeyboardEvent<HTMLInputElement>) => {
       e.preventDefault();
       const trimmedInput = input.trim();
       if ((!trimmedInput && uploadedFiles.length === 0) || isLoading) return;
@@ -352,84 +342,12 @@ export default function ChatComponent() {
         </button>
       </div>
 
-      <div
-        className={`bg-accent text-primary flex-shrink-0 flex flex-col transition-all duration-300 shadow-lg 
-        ${
-          sidebarOpen
-            ? "fixed inset-0 w-full z-50"
-            : "w-64 absolute -translate-x-full md:translate-x-0 md:relative md:w-64 z-40"
-        } h-full`}>
-        <div className="p-4 border-b border-primary/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative h-8 w-8 overflow-hidden">
-              <Image
-                src="/images/indianapolis.png"
-                alt="Indianapolis Logo"
-                fill
-                className="object-contain"
-              />
-            </div>
-            <h1 className="font-semibold text-lg">Indy Chat</h1>
-          </div>
-
-          {sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-md bg-accent-light text-primary hover:bg-accent-light/80 transition-colors md:hidden">
-              <X className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-
-        <button
-          onClick={startNewChat}
-          className="mx-3 mt-3 mb-1 flex items-center gap-2 rounded-md border border-primary/20 bg-accent-light p-3 text-sm transition-colors hover:bg-accent-light/80">
-          <Plus className="h-4 w-4" />
-          <span>New chat</span>
-        </button>
-
-        <div className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
-          <div className="border-b border-primary/10 pb-1 mb-2">
-            <h2 className="text-xs font-medium text-primary/70 px-2 py-1">
-              Recent conversations
-            </h2>
-            {conversationHistory.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => {}}
-                className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-start">
-                <div className="w-full truncate">
-                  <div className="font-medium truncate">{conv.title}</div>
-                  <div className="text-xs text-primary/60">{conv.date}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-3 border-t border-primary/10 space-y-1">
-          <Link href="/profile">
-            <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </button>
-          </Link>
-          
-          {userRole === 'admin' && (
-            <Link href="/admin">
-              <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <span>Admin Panel</span>
-              </button>
-            </Link>
-          )}
-          
-          <SignOutButton 
-            variant="minimal" 
-            className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors"
-          />
-        </div>
-      </div>
+      <ChatSidebar 
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        startNewChat={startNewChat}
+        userRole={userRole}
+      />
 
       <div className="flex-1 flex flex-col h-full max-h-full overflow-hidden relative">
         <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 md:px-8">
@@ -645,27 +563,25 @@ export default function ChatComponent() {
               onSubmit={handleSubmit}
               className="flex items-center gap-2 relative">
               <div className="relative flex-1">
-                <textarea
-                  ref={textareaRef}
+                <input
+                  type="text"
+                  ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Message IndyChat..."
-                  className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-3 pr-32 resize-none min-h-[50px] max-h-[200px] text-accent focus:outline-none focus:border-accent/30"
-                  rows={1}
+                  placeholder={isMobile ? "Message Indy..." : "Message IndyChat..."}
+                  className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-2 pr-32 h-[40px] text-accent text-xs placeholder-accent/60 focus:outline-none focus:border-accent/30"
                   onKeyDown={(e) => {
                     if (
                       e.key === "Enter" &&
-                      !e.shiftKey &&
                       !isLoading &&
                       (input.trim() || uploadedFiles.length > 0)
                     ) {
                       e.preventDefault();
                       handleSubmit(
-                        e as React.KeyboardEvent<HTMLTextAreaElement>
+                        e as React.KeyboardEvent<HTMLInputElement>
                       );
                     }
                   }}
-                  style={{ overflowY: "auto" }}
                 />
 
                 {profile?.stt_enabled && (

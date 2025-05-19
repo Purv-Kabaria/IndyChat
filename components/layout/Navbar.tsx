@@ -5,9 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const supabase = createClientComponentClient();
   
   useEffect(() => {
     if (isMenuOpen) {
@@ -20,6 +23,23 @@ const Navbar = () => {
       document.body.style.overflow = 'unset';
     };
   }, [isMenuOpen]);
+  
+  // Check authentication status
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    
+    checkAuthStatus();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -90,7 +110,7 @@ const Navbar = () => {
         {/* Desktop Navigation Links */}
         <div className="hidden lg:flex items-center space-x-10">
           <a 
-            href="#home" 
+            href="/" 
             className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'home')}
           >
@@ -123,18 +143,37 @@ const Navbar = () => {
         
         {/* Desktop Auth Buttons */}
         <div className="hidden lg:flex items-center space-x-4">
-          <Link 
-            href="/login" 
-            className="px-8 py-3 border border-accent rounded-md text-accent hover:bg-accent/10"
-          >
-            Login
-          </Link>
-          <Link 
-            href="/signup" 
-            className="px-8 py-3 bg-accent text-white rounded-md hover:bg-accent/80"
-          >
-            Sign Up
-          </Link>
+          {isLoggedIn ? (
+            <>
+              <Link 
+                href="/profile" 
+                className="px-8 py-3 border border-accent rounded-md text-accent hover:bg-accent/10"
+              >
+                Profile
+              </Link>
+              <Link 
+                href="/chat" 
+                className="px-8 py-3 bg-accent text-white rounded-md hover:bg-accent/80"
+              >
+                Chat
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link 
+                href="/login" 
+                className="px-8 py-3 border border-accent rounded-md text-accent hover:bg-accent/10"
+              >
+                Login
+              </Link>
+              <Link 
+                href="/signup" 
+                className="px-8 py-3 bg-accent text-white rounded-md hover:bg-accent/80"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
         </div>
         
         {/* Mobile Menu Button */}
@@ -241,20 +280,41 @@ const Navbar = () => {
                 custom={6}
                 variants={menuItemVariants}
               >
-                <Link 
-                  href="/login" 
-                  className="block w-full py-3 px-4 border border-[#243b5f] rounded-md text-[#243b5f] text-center font-medium"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Login
-                </Link>
-                <Link 
-                  href="/signup" 
-                  className="block w-full py-3 px-4 bg-[#243b5f] text-white rounded-md text-center font-medium"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Sign Up
-                </Link>
+                {isLoggedIn ? (
+                  <>
+                    <Link 
+                      href="/profile" 
+                      className="block w-full py-3 px-4 border border-[#243b5f] rounded-md text-[#243b5f] text-center font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <Link 
+                      href="/chat" 
+                      className="block w-full py-3 px-4 bg-[#243b5f] text-white rounded-md text-center font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Chat
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link 
+                      href="/login" 
+                      className="block w-full py-3 px-4 border border-[#243b5f] rounded-md text-[#243b5f] text-center font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Login
+                    </Link>
+                    <Link 
+                      href="/signup" 
+                      className="block w-full py-3 px-4 bg-[#243b5f] text-white rounded-md text-center font-medium"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
               </motion.div>
             </div>
           </motion.div>
