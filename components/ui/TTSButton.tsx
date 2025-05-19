@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
-import { UserProfile } from "@/lib/hooks/useUserProfile";
+import { UserProfile } from "@/hooks/useUserProfile";
 import { playTextToSpeech } from "@/functions/ttsUtils";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 

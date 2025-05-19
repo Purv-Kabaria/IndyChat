@@ -25,7 +25,7 @@ import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
 import Link from "next/link";
-import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";

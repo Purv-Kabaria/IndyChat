@@ -1,6 +1,6 @@
 "use client";
 
-import { UserProfile } from "@/lib/hooks/useUserProfile";
+import { UserProfile } from "@/hooks/useUserProfile";
 
 // Add TypeScript declarations for the Web Speech API
 declare global {

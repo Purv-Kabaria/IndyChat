@@ -68,7 +68,44 @@ export default function ProfilePage() {
           return;
         }
         
-        const user = userData.user;
+        let user = userData.user;
+        
+        // Check if this is an OAuth user with missing metadata
+        const isOAuthUser = user.app_metadata?.provider === 'google';
+        const hasMetadata = user.user_metadata?.first_name || user.user_metadata?.last_name;
+        
+        // Initialize metadata for OAuth users if missing
+        if (isOAuthUser && !hasMetadata) {
+          // Get the raw OAuth data from Google
+          const rawUserData = user.user_metadata?.raw_user_meta_data || {};
+          const googleName = rawUserData.name || '';
+          const googleAvatar = rawUserData.picture || null;
+          
+          // Split the name into first and last name
+          const nameParts = googleName.split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              avatar_url: googleAvatar,
+              tts_enabled: false,
+              stt_enabled: false,
+            }
+          });
+          
+          if (updateError) {
+            console.error("Error initializing OAuth user metadata:", updateError);
+          } else {
+            // Refresh user data after updating metadata
+            const { data: refreshedUser } = await supabase.auth.getUser();
+            if (refreshedUser.user) {
+              user = refreshedUser.user;
+            }
+          }
+        }
         
         // Set profile data
         const userProfile: UserProfile = {

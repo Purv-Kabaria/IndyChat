@@ -1,4 +1,4 @@
-import { UserProfile } from "@/lib/hooks/useUserProfile";
+import { UserProfile } from "@/hooks/useUserProfile";
 
 // Export the default voice ID so it can be used across the application
 export const DEFAULT_VOICE_ID = 'pNInz6obpgDQGcFmaJgB'; // Adam voice
