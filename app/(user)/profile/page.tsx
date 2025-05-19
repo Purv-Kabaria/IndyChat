@@ -653,6 +653,41 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 className="text-sm font-medium text-gray-900 mb-2">Development Tools</h3>
+        <div className="p-3 bg-yellow-50 text-sm text-yellow-800 rounded-md mb-3">
+          Warning: These tools are for development use only and should be removed in production.
+        </div>
+        
+        <button
+          onClick={async () => {
+            try {
+              // Get the current user
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) return;
+              
+              // Update the user's role to admin
+              const { error } = await supabase
+                .from('profiles')
+                .update({ role: 'admin' })
+                .eq('id', session.user.id);
+                
+              if (error) {
+                console.error('Error making user admin:', error);
+                alert('Error making user admin: ' + error.message);
+              } else {
+                alert('Success! You are now an admin. Please log out and log back in.');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Unexpected error');
+            }
+          }}
+          className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md text-sm"
+        >
+          Make Me Admin (Debug Only)
+        </button>
+      </div>
     </div>
   );
 }

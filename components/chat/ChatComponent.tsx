@@ -14,6 +14,7 @@ import {
   Volume2,
   Mic,
   MicOff,
+  Shield,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -30,6 +31,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
 import SignOutButton from "@/components/SignOutButton";
+import { isAdmin, UserRole } from '@/lib/auth-utils';
 
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -65,6 +67,7 @@ export default function ChatComponent() {
   const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
   const supabase = createClientComponentClient();
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
 
   const { profile } = useUserProfile();
 
@@ -316,6 +319,29 @@ export default function ChatComponent() {
     }
   }, []);
 
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!error && data) {
+            setUserRole(data.role as UserRole);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error);
+      }
+    };
+
+    checkUserRole();
+  }, [supabase.auth]);
+
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
       <div className="absolute top-3 left-3 md:hidden z-50">
@@ -388,6 +414,16 @@ export default function ChatComponent() {
               <span>Settings</span>
             </button>
           </Link>
+          
+          {userRole === 'admin' && (
+            <Link href="/admin">
+              <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                <span>Admin Panel</span>
+              </button>
+            </Link>
+          )}
+          
           <SignOutButton 
             variant="minimal" 
             className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors"

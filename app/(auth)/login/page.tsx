@@ -43,34 +43,46 @@ type AuthError = {
         }
         throw error;
       }
-      
-      // Fetch user's profile data to determine role
-      const { data: profile, error: profileError } = await supabase
+
+      // Ensure the user has a profile in the profiles table
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', loginData.user?.id)
         .single();
-      
-      if (profileError) {
-        console.error('Failed to fetch profile:', profileError);
-        // Continue with default redirection even if profile fetch fails
+
+      if (profileError && profileError.code === 'PGRST116') {
+        // Profile doesn't exist yet, create it with default 'user' role
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: loginData.user?.id,
+            email: loginData.user?.email,
+            first_name: loginData.user?.user_metadata?.first_name || '',
+            last_name: loginData.user?.user_metadata?.last_name || '',
+            avatar_url: loginData.user?.user_metadata?.avatar_url || null,
+            role: 'user'
+          });
+
+        if (insertError) {
+          console.error('Failed to create profile:', insertError);
+        }
+      } else if (profileData) {
+        // Profile exists, update last sign-in timestamp
+        await supabase
+          .from('profiles')
+          .update({ last_sign_in_at: new Date().toISOString() })
+          .eq('id', loginData.user?.id);
+        
+        // Redirect based on role
+        if (profileData.role === 'admin') {
+          router.push("/admin");
+          return;
+        }
       }
 
-      // Update last sign-in timestamp
-      await supabase
-        .from('profiles')
-        .update({ last_sign_in_at: new Date().toISOString() })
-        .eq('id', loginData.user?.id);
-      
-      // If successful, refresh the page to trigger middleware redirect
-      router.refresh();
-      
-      // Redirect based on role - always go to chat unless specifically an admin
-      if (profile?.role === 'admin') {
-        router.push("/admin");
-      } else {
-        router.push("/chat");
-      }
+      // Default redirect to chat
+      router.push("/chat");
     } catch (error: unknown) {
       setError((error as AuthError).message || "An error occurred during login");
     } finally {

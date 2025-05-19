@@ -175,23 +175,29 @@ function SignupPageContent() {
         },
       });
 
-      // Log response (but not sensitive data)
-      console.log("Signup response:", {
-        success: !error,
-        hasData: !!data,
-        hasUser: data?.user ? true : false,
-        hasSession: data?.session ? true : false,
-        emailConfirmed: data?.user?.email_confirmed_at ? true : false,
-        identities: data?.user?.identities?.length,
-        createdAt: data?.user?.created_at,
-        error: error ? {
-          message: error.message,
-          status: error.status,
-          name: error.name
-        } : null
-      });
-
       if (error) throw error;
+      
+      // Create a profile with 'user' role by default
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            avatar_url: null,
+            role: 'user', // Default role is "user", not admin
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'id'
+          });
+          
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+        }
+      }
       
       // Check if the user has already confirmed their email
       if (data?.user?.email_confirmed_at) {
