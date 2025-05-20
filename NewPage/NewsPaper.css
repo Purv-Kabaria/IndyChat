@@ -1,0 +1,12 @@
+#newspaper{
+    background-image: url("https://t4.ftcdn.net/jpg/03/05/31/73/360_F_305317368_3SK41rN0Nv0ifA5Oan5fIufacQYDX19R.jpg");
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    border: 3px solid black;
+    margin:30px
+}
+#vertical-line{
+    width:0px;
+    border: 1px dashed gray;
+}
