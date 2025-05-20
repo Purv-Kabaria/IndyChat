@@ -1,4 +1,5 @@
 import AdminRouteGuard from '@/components/admin/AdminRouteGuard';
+import AdminNavigation from '@/components/admin/AdminNavigation';
 
 export default function AdminLayout({
   children,
@@ -7,7 +8,17 @@ export default function AdminLayout({
 }) {
   return (
     <AdminRouteGuard>
-      {children}
+      <div className="min-h-screen bg-gray-100">
+        {/* Navigation sidebar */}
+        <AdminNavigation />
+
+        {/* Main content area with proper padding for sidebar */}
+        <div className="lg:pl-64">
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
+      </div>
     </AdminRouteGuard>
   );
 } 

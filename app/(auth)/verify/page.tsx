@@ -47,7 +47,6 @@ function VerifyPageContent() {
         } else if (data?.session) {
           // If user has a session, check if email is verified
           if (data.session.user.email_confirmed_at) {
-            console.log("Email already verified, redirecting...");
             setMessage("Your email is already verified! Redirecting...");
             
             // Always redirect to chat after verification

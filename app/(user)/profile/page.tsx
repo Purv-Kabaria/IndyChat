@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Camera, Check, X, Home, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { Loader2, Camera, Check, X, Home, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -294,6 +294,11 @@ export default function ProfilePage() {
     }
   };
   
+  // Add state for handling navigation
+  const handleGoBack = () => {
+    router.back();
+  };
+  
   if (loading) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
@@ -305,14 +310,16 @@ export default function ProfilePage() {
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-primary/5 via-transparent to-transparent px-4 sm:px-6 overflow-hidden">
       <div className="max-w-5xl mx-auto w-full flex flex-col h-full py-4">
-        {/* Back to home button */}
+        {/* Back button */}
         <div className="mb-2">
-          <Link href="/">
-            <Button variant="outline" className="flex items-center gap-2 hover:bg-primary/5 h-8 px-3 py-1 text-sm">
-              <Home className="h-3 w-3" />
-              Back
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 hover:bg-primary/5 h-8 px-3 py-1 text-sm"
+            onClick={handleGoBack}
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back
+          </Button>
         </div>
         
         {/* Profile content */}

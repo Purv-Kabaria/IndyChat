@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
 import Image from "next/image";
 
 type AuthError = {
@@ -39,7 +39,9 @@ function SignupPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [envStatus, setEnvStatus] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [currentSession, setCurrentSession] = useState<UserSession | null>(null);
+  const [currentSession, setCurrentSession] = useState<UserSession | null>(
+    null
+  );
 
   // Verify environment variables and Supabase client on component mount
   // Also check session status to handle already authenticated users
@@ -48,63 +50,56 @@ function SignupPageContent() {
       // Check if Supabase environment variables are set
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Environment check:", {
-          hasSupabaseUrl: !!supabaseUrl,
-          hasSupabaseKey: !!supabaseKey,
-        });
-      }
-      
+
       if (!supabaseUrl || !supabaseKey) {
         setEnvStatus("Warning: Supabase environment variables are missing");
         setSessionChecked(true);
         return;
       }
-      
+
       // Check for forceRedirect parameter
       const urlParams = new URLSearchParams(window.location.search);
-      const forceRedirect = urlParams.get('forceRedirect');
-      
+      const forceRedirect = urlParams.get("forceRedirect");
+
       try {
         const { data, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error("Supabase session retrieval error:", error);
           setEnvStatus("Error retrieving session");
         } else {
           // Store the session for use in rendering
-          setCurrentSession(data.session ? {
-            user: {
-              email: data.session.user.email || '',
-              email_confirmed_at: data.session.user.email_confirmed_at
-            },
-            session: data.session
-          } : null);
-          
-          // Only auto-redirect if a session exists and forceRedirect is not explicitly 'false'
-          if (data.session && forceRedirect !== 'false') {
-            console.log("Active session detected, preparing redirect");
-            
-            // Check if this is a Google OAuth user - they don't need email verification
-            const isOAuthProvider = data.session.user.app_metadata?.provider === 'google';
-            
-            // Google OAuth users always skip verification
+          setCurrentSession(
+            data.session
+              ? {
+                  user: {
+                    email: data.session.user.email || "",
+                    email_confirmed_at: data.session.user.email_confirmed_at,
+                  },
+                  session: data.session,
+                }
+              : null
+          );
+
+          if (data.session && forceRedirect !== "false") {
+            const isOAuthProvider =
+              data.session.user.app_metadata?.provider === "google";
+
             if (isOAuthProvider) {
-              console.log("OAuth user detected, redirecting to chat");
               router.push("/chat");
               return;
             }
-            
-            // If email is not verified for password-based auth, redirect to verification
-            if (data.session.user.email && !data.session.user.email_confirmed_at) {
-              console.log("Unverified email, redirecting to verification");
-              router.push(`/verify?email=${encodeURIComponent(data.session.user.email)}`);
+
+            if (
+              data.session.user.email &&
+              !data.session.user.email_confirmed_at
+            ) {
+              router.push(
+                `/verify?email=${encodeURIComponent(data.session.user.email)}`
+              );
               return;
             }
-            
-            // Redirect to chat for fully authenticated users
-            console.log("Authenticated session, redirecting to chat");
+
             router.push("/chat");
             return;
           }
@@ -116,7 +111,7 @@ function SignupPageContent() {
         setSessionChecked(true);
       }
     };
-    
+
     checkSupabaseConfig();
   }, [router]);
 
@@ -124,10 +119,7 @@ function SignupPageContent() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
-    console.log("Starting signup process...");
-    
-    // Check environment variables
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) {
@@ -150,20 +142,7 @@ function SignupPageContent() {
       return;
     }
 
-    console.log("Form data validated, proceeding with signup...");
-
     try {
-      // Log signup payload (without sensitive data)
-      console.log("Signup request:", {
-        email,
-        hasPassword: !!password,
-        userData: {
-          first_name: firstName,
-          last_name: lastName,
-        }
-      });
-      
-      // Sign up with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -176,93 +155,77 @@ function SignupPageContent() {
       });
 
       if (error) throw error;
-      
+
       // Create a profile with 'user' role by default
       if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
+        const { error: profileError } = await supabase.from("profiles").upsert(
+          {
             id: data.user.id,
             email: email,
             first_name: firstName,
             last_name: lastName,
             avatar_url: null,
-            role: 'user', // Default role is "user", not admin
+            role: "user", // Default role is "user", not admin
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'id'
-          });
-          
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "id",
+          }
+        );
+
         if (profileError) {
           console.error("Error creating profile:", profileError);
-        } else {
-          console.log("Successfully created/updated profile with first and last name");
         }
       }
-      
-      // Check if the user has already confirmed their email
+
       if (data?.user?.email_confirmed_at) {
-        console.log("Email already verified, redirecting to dashboard...");
-        
         setTimeout(() => {
           router.push("/chat");
         }, 2000);
         return;
       }
-      
-      // Check if Supabase returned confirmation details
-      console.log("User registration status:", {
-        confirmationSent: data?.user?.confirmation_sent_at ? true : false,
-        identitiesLength: data?.user?.identities?.length || 0
-      });
-      
-      console.log("Signup successful, redirecting to verification page...");
-      
-      // Check if the verification email was sent
-      if (data?.user?.confirmation_sent_at) {
-        console.log("Verification email sent at:", data.user.confirmation_sent_at);
-      } else {
-        console.warn("No confirmation_sent_at timestamp in response");
-      }
-      
-      // Use setTimeout to show the success message before redirecting
+
       setTimeout(() => {
-        // Redirect to verification page with email and explicit redirect to chat
-        router.push(`/verify?email=${encodeURIComponent(email)}&redirectTo=/chat`);
+        router.push(
+          `/verify?email=${encodeURIComponent(email)}&redirectTo=/chat`
+        );
       }, 2000);
     } catch (error: unknown) {
       console.error("Signup error:", error);
-      
+
       // Enhanced error reporting
       let errorMessage = "An error occurred during signup";
-      
+
       const authError = error as AuthError;
-      
+
       if (authError.message) {
         errorMessage = authError.message;
       }
-      
+
       if (authError.status) {
         errorMessage += ` (Status: ${authError.status})`;
       }
-      
+
       // Check for specific error types and provide more helpful messages
       if (errorMessage.includes("already registered")) {
-        errorMessage = "This email is already registered. Please try logging in instead.";
-        
+        errorMessage =
+          "This email is already registered. Please try logging in instead.";
+
         // Offer option to navigate to login
         setTimeout(() => {
           router.push("/login");
         }, 5000);
       } else if (errorMessage.includes("network")) {
-        errorMessage = "Network error. Please check your internet connection and try again.";
+        errorMessage =
+          "Network error. Please check your internet connection and try again.";
       } else if (errorMessage.includes("email verification")) {
-        errorMessage = "There was an issue sending the verification email. Please try again or contact support.";
+        errorMessage =
+          "There was an issue sending the verification email. Please try again or contact support.";
       } else if (errorMessage.includes("rate limit")) {
         errorMessage = "Too many signup attempts. Please try again later.";
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -272,43 +235,28 @@ function SignupPageContent() {
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError(null);
-    
-    console.log("Starting Google sign in process...");
-    
+
+
     try {
-      // Get the current auth status first to handle the case where we're
-      // creating a Supabase auth entry but not creating a profile
       const { data: sessionData } = await supabase.auth.getSession();
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL || ''}/api/auth/callback`,
+          redirectTo: `${
+            typeof window !== "undefined"
+              ? window.location.origin
+              : process.env.NEXT_PUBLIC_SITE_URL || ""
+          }/api/auth/callback`,
           queryParams: {
-            // These will be passed as query params to the Google auth URL
-            // and can be accessed later to enhance our profile
             prompt: "select_account",
-            access_type: "offline"
-          }
+            access_type: "offline",
+          },
         },
       });
 
-      console.log("Google OAuth response:", {
-        success: !error,
-        error: error ? {
-          message: error.message,
-          status: error.status
-        } : null
-      });
-
       if (error) throw error;
-      
-      // Note: For OAuth providers, we can't directly update the profile here
-      // because the auth flow redirects to Google. Instead, we'll have to
-      // handle this in the callback or in the profile page.
-      
-      // We'll add a server-side function or a trigger in Supabase to 
-      // handle this automatically when OAuth users sign in.
+
     } catch (error: unknown) {
       console.error("Google sign in error:", error);
       const authError = error as AuthError;
@@ -317,7 +265,6 @@ function SignupPageContent() {
     }
   };
 
-  // Don't render the form until the session check is complete
   if (!sessionChecked) {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
@@ -328,9 +275,17 @@ function SignupPageContent() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
+      {/* Back to Home button */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white py-2 px-3 rounded-lg text-sm">
+        <Home className="h-4 w-4" />
+        <span>Back to Home</span>
+      </Link>
+
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-cal font-bold text-accent">IndyChat</h1>
@@ -342,21 +297,20 @@ function SignupPageContent() {
             <strong>Debug:</strong> {envStatus}
           </div>
         )}
-        
+
         {/* Add a hint for logged-in users */}
         {sessionChecked && currentSession && (
           <div className="bg-blue-50 text-blue-700 p-3 rounded-lg mb-4 text-sm">
-            <strong>Note:</strong> You are currently logged in. 
-            If you want to create another account, 
-            <Link 
-              href="/signup?forceRedirect=false" 
-              className="ml-1 underline font-medium"
-            >
+            <strong>Note:</strong> You are currently logged in. If you want to
+            create another account,
+            <Link
+              href="/signup?forceRedirect=false"
+              className="ml-1 underline font-medium">
               click here
             </Link>
           </div>
         )}
-        
+
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
             {error}
@@ -366,7 +320,9 @@ function SignupPageContent() {
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-accent mb-1">
+              <label
+                htmlFor="firstName"
+                className="block text-sm font-medium text-accent mb-1">
                 First Name
               </label>
               <input
@@ -379,7 +335,9 @@ function SignupPageContent() {
               />
             </div>
             <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-accent mb-1">
+              <label
+                htmlFor="lastName"
+                className="block text-sm font-medium text-accent mb-1">
                 Last Name
               </label>
               <input
@@ -394,7 +352,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-accent mb-1">
               Email
             </label>
             <input
@@ -408,7 +368,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-accent mb-1">
               Password
             </label>
             <input
@@ -422,7 +384,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-accent mb-1">
               Confirm Password
             </label>
             <input
@@ -438,8 +402,7 @@ function SignupPageContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center"
-          >
+            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center">
             {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
             Sign Up
           </button>
@@ -451,23 +414,31 @@ function SignupPageContent() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              <span className="px-2 bg-white text-gray-500">
+                Or continue with
+              </span>
             </div>
           </div>
 
           <button
             onClick={handleGoogleSignup}
             disabled={loading}
-            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Image src="/images/google.svg" alt="Google" width={20} height={20} />
+            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors">
+            <Image
+              src="/images/google.svg"
+              alt="Google"
+              width={20}
+              height={20}
+            />
             Google
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{" "}
-          <Link href="/login" className="text-accent hover:underline font-medium">
+          <Link
+            href="/login"
+            className="text-accent hover:underline font-medium">
             Sign in
           </Link>
         </p>
@@ -494,4 +465,4 @@ export default function SignupPage() {
       <SignupPageContent />
     </Suspense>
   );
-} 
+}

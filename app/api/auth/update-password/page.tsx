@@ -27,7 +27,7 @@ function UpdatePasswordPageContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is authenticated
+    
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession() as { 
         data: SessionData 
@@ -46,7 +46,7 @@ function UpdatePasswordPageContent() {
     setError(null);
     setMessage(null);
 
-    // Validation
+    
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -68,7 +68,7 @@ function UpdatePasswordPageContent() {
       
       setMessage("Password updated successfully");
       
-      // Redirect after short delay
+      
       setTimeout(() => {
         router.push("/login?message=Password updated successfully");
       }, 2000);
@@ -143,7 +143,7 @@ function UpdatePasswordPageContent() {
   );
 }
 
-// Loading fallback component
+
 function UpdatePasswordPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">

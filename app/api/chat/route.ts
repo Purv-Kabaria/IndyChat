@@ -24,11 +24,11 @@ type RequestBody = {
 const DIFY_API_KEY = process.env.DIFY_API_KEY;
 const DIFY_API_URL = "https://api.dify.ai/v1/chat-messages";
 
-export const runtime = 'edge'; // Use edge runtime for streaming
+export const runtime = 'edge'; 
 
 export async function POST(req: NextRequest) {
   try {
-    // Extract files array along with other data
+    
     const { query, conversation_id, user: userIdFromRequest, files } = await req.json();
 
     if (!query) {
@@ -50,14 +50,14 @@ export async function POST(req: NextRequest) {
       user: userId,
     };
 
-    // Add conversation_id if it exists
+    
     if (conversation_id) {
       requestBody.conversation_id = conversation_id;
     }
 
-    // Add files if they exist and the array is not empty
+    
     if (files && Array.isArray(files) && files.length > 0) {
-      // Validate file structure before adding
+      
       const isValidFiles = files.every(file => 
         typeof file === 'object' && 
         file !== null &&
@@ -70,10 +70,8 @@ export async function POST(req: NextRequest) {
         console.error("API Chat Route: Invalid file structure received from frontend:", JSON.stringify(files, null, 2));
         return NextResponse.json({ error: 'Invalid file structure provided' }, { status: 400 });
       }
-      requestBody.files = files; // Pass the files array directly to Dify
+      requestBody.files = files; 
     }
-
-    console.log("API Chat Route: Sending to Dify with body:", JSON.stringify(requestBody, null, 2));
 
     const difyResponse = await fetch(DIFY_API_URL, {
       method: 'POST',

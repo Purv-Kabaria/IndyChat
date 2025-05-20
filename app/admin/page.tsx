@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Search, User, Check, X, ArrowLeft, ExternalLink, Shield } from "lucide-react";
+import { Loader2, Search, User, Check, X, Shield, ChevronLeft, ChevronRight, File } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getAllUsers, UserProfile, updateUserRole } from "@/lib/auth-utils";
 
 export default function AdminDashboard() {
@@ -12,6 +13,11 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
   const supabase = createClientComponentClient();
+  const router = useRouter();
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -85,29 +91,39 @@ export default function AdminDashboard() {
     );
   });
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Handle page navigation
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString();
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   return (
     <div className="min-h-[100dvh] bg-gray-50">
-      <header className="bg-accent text-white p-4 shadow-md">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6" />
-            <h1 className="text-xl font-bold">Admin Dashboard</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/chat" className="flex items-center gap-1 text-sm hover:underline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Chat
-            </Link>
-          </div>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage users and system settings
+          </p>
         </div>
-      </header>
 
-      <main className="container mx-auto p-4 md:p-6">
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-xl font-semibold mb-6">User Management</h2>
           
@@ -129,90 +145,148 @@ export default function AdminDashboard() {
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-accent text-white rounded-full flex items-center justify-center">
-                              {user.avatar_url ? (
-                                <img src={user.avatar_url} alt={`${user.first_name}'s avatar`} className="h-10 w-10 rounded-full" />
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedUsers.length > 0 ? (
+                      paginatedUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-accent text-white rounded-full flex items-center justify-center">
+                                {user.avatar_url ? (
+                                  <img src={user.avatar_url} alt={`${user.first_name}'s avatar`} className="h-10 w-10 rounded-full" />
+                                ) : (
+                                  <User className="h-5 w-5" />
+                                )}
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {user.first_name || 'N/A'} {user.last_name || 'N/A'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {user.id}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{user.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {user.address ? (
+                                <span className="text-gray-700">{user.address}</span>
                               ) : (
-                                <User className="h-5 w-5" />
+                                <span className="text-gray-400 italic">No address provided</span>
                               )}
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {user.first_name || 'N/A'} {user.last_name || 'N/A'}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {user.id}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {user.address ? (
-                              <span className="text-gray-700">{user.address}</span>
-                            ) : (
-                              <span className="text-gray-400 italic">No address provided</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{formatDate(user.created_at)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => handleRoleToggle(user.id, user.role)}
-                            disabled={updateLoading === user.id}
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              user.role === 'admin'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            } focus:outline-none hover:bg-opacity-80 transition-colors`}
-                          >
-                            {updateLoading === user.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            ) : user.role === 'admin' ? (
-                              <Check className="h-4 w-4 mr-1" />
-                            ) : (
-                              <X className="h-4 w-4 mr-1" />
-                            )}
-                            {user.role === 'admin' ? 'Admin' : 'User'}
-                          </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{formatDate(user.created_at)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleRoleToggle(user.id, user.role)}
+                              disabled={updateLoading === user.id}
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                user.role === 'admin'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              } focus:outline-none hover:bg-opacity-80 transition-colors`}
+                            >
+                              {updateLoading === user.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                              ) : user.role === 'admin' ? (
+                                <Check className="h-4 w-4 mr-1" />
+                              ) : (
+                                <X className="h-4 w-4 mr-1" />
+                              )}
+                              {user.role === 'admin' ? 'Admin' : 'User'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                          No users found matching your search criteria.
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                        No users found matching your search criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination Controls */}
+              {filteredUsers.length > 0 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-gray-500">
+                    Showing {paginatedUsers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredUsers.length)} of {filteredUsers.length} users
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`p-1 rounded-md ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    
+                    <div className="flex space-x-1">
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        // Show pages around current page
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => goToPage(pageNum)}
+                            className={`h-8 w-8 flex items-center justify-center rounded-md ${
+                              currentPage === pageNum
+                                ? 'bg-accent text-white'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className={`p-1 rounded-md ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 } 
