@@ -52,7 +52,13 @@ type AuthError = {
         .single();
 
       if (profileError && profileError.code === 'PGRST116') {
-        // Profile doesn't exist yet, create it with default 'user' role
+        // First check if this user has admin privileges in auth metadata
+        const { data: userRoleData, error: roleError } = await supabase.auth.getUser();
+        
+        // Determine if the user should have admin role from metadata or previous setup
+        const shouldBeAdmin = userRoleData?.user?.app_metadata?.role === 'admin';
+        
+        // Profile doesn't exist yet, create it with appropriate role
         const { error: insertError } = await supabase
           .from('profiles')
           .insert({
@@ -61,11 +67,17 @@ type AuthError = {
             first_name: loginData.user?.user_metadata?.first_name || '',
             last_name: loginData.user?.user_metadata?.last_name || '',
             avatar_url: loginData.user?.user_metadata?.avatar_url || null,
-            role: 'user'
+            role: shouldBeAdmin ? 'admin' : 'user'
           });
 
         if (insertError) {
           console.error('Failed to create profile:', insertError);
+        }
+        
+        // If user should be admin, redirect to admin page
+        if (shouldBeAdmin) {
+          router.push("/admin");
+          return;
         }
       } else if (profileData) {
         // Profile exists, update last sign-in timestamp
