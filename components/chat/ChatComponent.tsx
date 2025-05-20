@@ -12,6 +12,7 @@ import {
   Volume2,
   Mic,
   MicOff,
+  AlertCircle,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -28,6 +29,8 @@ import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
 import { UserRole } from '@/lib/auth-utils';
 import ChatSidebar from "./ChatSidebar";
+import { ComplaintMessage } from "./ComplaintMessage";
+import { ComplaintType } from "@/lib/complaints";
 
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -43,6 +46,102 @@ const extractMessageContent = (content: string): string => {
   }
   return content;
 };
+
+function MessageContent({ content, onComplaintClick }: { content: string, onComplaintClick: () => void }) {
+  const hasComplaintButton = content.includes("<complaint button>");
+  const cleanContent = hasComplaintButton ? content.replace(/<complaint button>/g, "") : content;
+  
+  return (
+    <>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({
+            href,
+            children,
+            ...props
+          }: React.HTMLProps<HTMLAnchorElement>) => (
+            <a
+              href={href}
+              {...props}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-secondary hover:underline">
+              {children}
+            </a>
+          ),
+          p: ({
+            children,
+          }: React.HTMLProps<HTMLParagraphElement>) => (
+            <p className="mb-3 last:mb-0">{children}</p>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside my-3 ml-2">
+              {children}
+            </ol>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc list-inside my-3 ml-2">
+              {children}
+            </ul>
+          ),
+          li: ({
+            children,
+          }: React.HTMLProps<HTMLLIElement>) => (
+            <li className="mb-1">{children}</li>
+          ),
+          code: ({
+            inline,
+            className,
+            children,
+            ...props
+          }: React.HTMLProps<HTMLElement> & {
+            inline?: boolean;
+          }) => {
+            const match = /language-(\w+)/.exec(
+              className || ""
+            );
+            const language = match?.[1];
+            return !inline ? (
+              <pre
+                className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
+                  language || "none"
+                }`}>
+                <code
+                  className={`block text-primary text-sm font-mono whitespace-pre`}
+                  {...props}>
+                  {children}
+                </code>
+              </pre>
+            ) : (
+              <code
+                className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
+                  className || ""
+                }`}
+                {...props}>
+                {children}
+              </code>
+            );
+          },
+        }}>
+        {cleanContent}
+      </ReactMarkdown>
+      
+      {hasComplaintButton && (
+        <div className="mt-3">
+          <Button 
+            onClick={onComplaintClick}
+            className="bg-accent hover:bg-accent/90 text-white"
+            size="sm"
+          >
+            <AlertCircle className="w-4 h-4 mr-2" />
+            File a Complaint
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function ChatComponent() {
   const searchParams = useSearchParams();
@@ -64,6 +163,8 @@ export default function ChatComponent() {
   const [isMobile, setIsMobile] = useState(false);
   const supabase = createClientComponentClient();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [showComplaintForm, setShowComplaintForm] = useState(false);
+  const [complaintType, setComplaintType] = useState<ComplaintType>('complaint');
 
   const { profile } = useUserProfile();
 
@@ -180,6 +281,57 @@ export default function ChatComponent() {
       e.preventDefault();
       const trimmedInput = input.trim();
       if ((!trimmedInput && uploadedFiles.length === 0) || isLoading) return;
+
+      // Special case for direct complaint requests
+      const lowerTrimmedInput = trimmedInput.toLowerCase();
+      if (lowerTrimmedInput === "i have a complaint" || lowerTrimmedInput === "i want to make a complaint") {
+        setInput("");
+        setUploadedFiles([]);
+        setComplaintType('complaint');
+        setShowComplaintForm(true);
+        return;
+      }
+      
+      // Check for other complaint intents
+      const complaintIntent = detectComplaintIntent(trimmedInput);
+      if (complaintIntent) {
+        // Create a new message from the user
+        const userMessage: Message = {
+          role: "user",
+          content: trimmedInput,
+          timestamp: new Date(),
+          id: generateMessageId(),
+          attachedFiles: [...uploadedFiles],
+        };
+        setMessages((prevMessages) => [...prevMessages, userMessage]);
+        setInput("");
+        setUploadedFiles([]);
+        
+        // Show appropriate assistant response
+        setTimeout(() => {
+          // Add a message from the assistant offering to submit a complaint
+          const assistantResponse: Message = {
+            role: "assistant",
+            content: complaintIntent === 'complaint' 
+              ? "I understand you're having an issue. Would you like to submit a formal complaint?"
+              : complaintIntent === 'report'
+              ? "Would you like to report this issue to our team?"
+              : complaintIntent === 'feedback'
+              ? "Thank you for your feedback. Would you like to submit it formally to our team?"
+              : "Thanks for your suggestion. Would you like to submit it formally to our team?",
+            timestamp: new Date(),
+            id: generateMessageId(),
+          };
+          
+          setMessages((prev) => [...prev, assistantResponse]);
+          
+          // Show the complaint form
+          setComplaintType(complaintIntent);
+          setShowComplaintForm(true);
+        }, 1000);
+        
+        return;
+      }
 
       if (trimmedInput || uploadedFiles.length > 0) {
         const userMessage: Message = {
@@ -332,6 +484,69 @@ export default function ChatComponent() {
     checkUserRole();
   }, [supabase.auth]);
 
+  // Function to detect complaint-related queries
+  const detectComplaintIntent = (message: string): ComplaintType | null => {
+    const lowerMessage = message.toLowerCase();
+    
+    if (
+      lowerMessage.includes("complain") || 
+      lowerMessage.includes("not working") || 
+      lowerMessage.includes("doesn't work") || 
+      lowerMessage.includes("problem with") ||
+      lowerMessage.includes("issue with") ||
+      lowerMessage.includes("terrible") ||
+      lowerMessage.includes("awful") ||
+      lowerMessage.includes("frustrated")
+    ) {
+      return 'complaint';
+    }
+    
+    if (
+      lowerMessage.includes("report") || 
+      lowerMessage.includes("broken") || 
+      lowerMessage.includes("error") || 
+      lowerMessage.includes("bug") ||
+      lowerMessage.includes("not functioning")
+    ) {
+      return 'report';
+    }
+    
+    if (
+      lowerMessage.includes("feedback") || 
+      lowerMessage.includes("opinion") || 
+      lowerMessage.includes("experience") || 
+      lowerMessage.includes("think about")
+    ) {
+      return 'feedback';
+    }
+    
+    if (
+      lowerMessage.includes("suggest") || 
+      lowerMessage.includes("idea") || 
+      lowerMessage.includes("improve") || 
+      lowerMessage.includes("better if") ||
+      lowerMessage.includes("would be nice")
+    ) {
+      return 'suggestion';
+    }
+    
+    return null;
+  };
+
+  const handleComplaintComplete = () => {
+    setShowComplaintForm(false);
+    
+    // Add a follow-up message from the assistant
+    const followUpMessage: Message = {
+      role: "assistant",
+      content: "Thank you for your submission. Is there anything else I can help you with today?",
+      timestamp: new Date(),
+      id: generateMessageId(),
+    };
+    
+    setMessages((prev) => [...prev, followUpMessage]);
+  };
+
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
       <div className="absolute top-3 left-3 md:hidden z-50">
@@ -375,96 +590,30 @@ export default function ChatComponent() {
                     </div>
                     <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent relative">
                       {message.content.includes("<iframe") &&
-                      message.id.includes("-iframe-") ? (
-                        createSafeIframe(message.content, isMobile)
-                      ) : (
-                        <>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({
-                                href,
-                                children,
-                                ...props
-                              }: React.HTMLProps<HTMLAnchorElement>) => (
-                                <a
-                                  href={href}
-                                  {...props}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-secondary hover:underline">
-                                  {children}
-                                </a>
-                              ),
-                              p: ({
-                                children,
-                              }: React.HTMLProps<HTMLParagraphElement>) => (
-                                <p className="mb-3 last:mb-0">{children}</p>
-                              ),
-                              ol: ({ children }) => (
-                                <ol className="list-decimal list-inside my-3 ml-2">
-                                  {children}
-                                </ol>
-                              ),
-                              ul: ({ children }) => (
-                                <ul className="list-disc list-inside my-3 ml-2">
-                                  {children}
-                                </ul>
-                              ),
-                              li: ({
-                                children,
-                              }: React.HTMLProps<HTMLLIElement>) => (
-                                <li className="mb-1">{children}</li>
-                              ),
-                              code: ({
-                                inline,
-                                className,
-                                children,
-                                ...props
-                              }: React.HTMLProps<HTMLElement> & {
-                                inline?: boolean;
-                              }) => {
-                                const match = /language-(\w+)/.exec(
-                                  className || ""
-                                );
-                                const language = match?.[1];
-                                return !inline ? (
-                                  <pre
-                                    className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
-                                      language || "none"
-                                    }`}>
-                                    <code
-                                      className={`block text-primary text-sm font-mono whitespace-pre`}
-                                      {...props}>
-                                      {children}
-                                    </code>
-                                  </pre>
-                                ) : (
-                                  <code
-                                    className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
-                                      className || ""
-                                    }`}
-                                    {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                            }}>
-                            {message.content}
-                          </ReactMarkdown>
-
-                          {!message.content.includes("<iframe") && (
-                            <div className="mt-2 text-xs flex justify-end items-center gap-4">
-                              <TTSButton
-                                text={extractMessageContent(message.content)}
-                                profile={profile}
-                                isLoading={isLoading && message.id === messages[messages.length - 1]?.id}
-                                isLastMessage={message.id === messages[messages.length - 1]?.id}
-                              />
-                            </div>
-                          )}
-                        </>
-                      )}
+                        message.id.includes("-iframe-") ? (
+                          createSafeIframe(message.content, isMobile)
+                        ) : (
+                          <>
+                            <MessageContent
+                              content={message.content}
+                              onComplaintClick={() => {
+                                setComplaintType('complaint');
+                                setShowComplaintForm(true);
+                              }}
+                            />
+                            
+                            {!message.content.includes("<iframe") && (
+                              <div className="mt-2 text-xs flex justify-end items-center gap-4">
+                                <TTSButton
+                                  text={extractMessageContent(message.content)}
+                                  profile={profile}
+                                  isLoading={isLoading && message.id === messages[messages.length - 1]?.id}
+                                  isLastMessage={message.id === messages[messages.length - 1]?.id}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
                     </div>
                   </div>
                 )}
@@ -496,6 +645,30 @@ export default function ChatComponent() {
                 )}
               </motion.div>
             ))}
+
+            {showComplaintForm && (
+              <motion.div
+                variants={messageVariants}
+                initial="hidden"
+                animate="visible"
+                className="flex justify-start">
+                <div className="flex gap-3 max-w-[90%]">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-accent overflow-hidden">
+                    <Image
+                      src="/images/indianapolis.png"
+                      alt="Indianapolis Logo"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
+                  </div>
+                  <ComplaintMessage
+                    type={complaintType}
+                    onComplete={handleComplaintComplete}
+                  />
+                </div>
+              </motion.div>
+            )}
 
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <motion.div
@@ -539,25 +712,34 @@ export default function ChatComponent() {
 
         <div className="border-t border-accent/10 bg-primary p-4 relative">
           <div className="max-w-3xl mx-auto">
-            {uploadedFiles.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-2">
-                {uploadedFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center gap-1 bg-accent/10 text-accent text-xs px-2 py-1 rounded-md border border-accent/20">
-                    <FileIcon className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate max-w-[150px]">{file.name}</span>
-                    <button
-                      onClick={() => removeFile(file.id)}
-                      className="ml-1 text-secondary hover:text-secondary/80"
-                      aria-label={`Remove ${file.name}`}
-                      disabled={isUploading}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+            <div className="mb-2 flex flex-wrap items-center">
+              <div 
+                onClick={() => setInput("I have a complaint")}
+                className="cursor-pointer flex items-center bg-accent/5 text-accent text-xs px-3 py-1.5 rounded-full border border-accent/20 mr-2 hover:bg-accent/10 transition-colors"
+              >
+                <AlertCircle className="h-3.5 w-3.5 mr-1" />
+                I have a complaint
               </div>
-            )}
+              {uploadedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2 w-full">
+                  {uploadedFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-1 bg-accent/10 text-accent text-xs px-2 py-1 rounded-md border border-accent/20">
+                      <FileIcon className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate max-w-[150px]">{file.name}</span>
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className="ml-1 text-secondary hover:text-secondary/80"
+                        aria-label={`Remove ${file.name}`}
+                        disabled={isUploading}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <form
               onSubmit={handleSubmit}
