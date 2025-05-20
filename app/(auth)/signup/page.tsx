@@ -48,8 +48,8 @@ function SignupPageContent() {
   useEffect(() => {
     const checkSupabaseConfig = async () => {
       // Check if Supabase environment variables are set
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseKey) {
         setEnvStatus("Warning: Supabase environment variables are missing");
@@ -120,8 +120,8 @@ function SignupPageContent() {
     setLoading(true);
     setError(null);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) {
       console.error("Supabase environment variables are missing");
       setError("Configuration error. Please contact support.");
