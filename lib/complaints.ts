@@ -136,7 +136,12 @@ export async function updateComplaintStatus(
       throw new Error('Only admins can update complaint status');
     }
     
-    const updateData: any = { 
+    const updateData: {
+      status: ComplaintStatus;
+      updated_at: string;
+      resolved_at?: string;
+      resolution_notes?: string;
+    } = { 
       status, 
       updated_at: new Date().toISOString() 
     };

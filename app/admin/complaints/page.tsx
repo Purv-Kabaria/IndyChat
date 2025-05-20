@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from "next/link";
 import { 
-  Loader2, Search, AlertCircle, CheckCircle, Clock, User, 
-  ChevronLeft, ChevronRight, Filter, ArrowUpDown
+  Loader2, User, 
+  ChevronLeft, ChevronRight, ArrowUpDown
 } from "lucide-react";
 import { 
   getAllComplaints, 
   updateComplaintStatus, 
-  assignComplaint, 
   Complaint, 
   ComplaintStatus 
 } from "@/lib/complaints";
@@ -50,7 +48,6 @@ type ExtendedComplaint = Complaint & {
 
 export default function ComplaintsAdminPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
   
   const [complaints, setComplaints] = useState<ExtendedComplaint[]>([]);
   const [loading, setLoading] = useState(true);

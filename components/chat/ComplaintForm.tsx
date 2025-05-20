@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { submitComplaint, ComplaintType } from '@/lib/complaints';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,6 @@ interface ComplaintFormProps {
 }
 
 export function ComplaintForm({ onComplete, initialType = 'complaint' }: ComplaintFormProps) {
-  const router = useRouter();
   const [type, setType] = useState<ComplaintType>(initialType);
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");

@@ -6,17 +6,11 @@ import { Plus, X, Settings, Shield, Home } from 'lucide-react';
 import SignOutButton from "@/components/SignOutButton";
 import { UserRole } from '@/lib/auth-utils';
 
-interface Conversation {
-  id: number;
-  title: string;
-  date: string;
-}
-
 interface ChatSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   startNewChat: () => void;
-  userRole: UserRole | null;
+  userRole: UserRole | 'guest' | null;
 }
 
 export default function ChatSidebar({

@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Camera, Check, X, Home, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff, ArrowLeft } from "lucide-react";
+import { Loader2, Camera, Check, X, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff, ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { testTextToSpeech } from "@/functions/ttsUtils";

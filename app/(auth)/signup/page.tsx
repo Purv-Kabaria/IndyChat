@@ -236,11 +236,8 @@ function SignupPageContent() {
     setLoading(true);
     setError(null);
 
-
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${

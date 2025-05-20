@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Loader2, Search, User, Check, X, Shield, ChevronLeft, ChevronRight, File } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { getAllUsers, UserProfile, updateUserRole } from "@/lib/auth-utils";
+import { Loader2, Search, User, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { getAllUsers, UserProfile } from "@/lib/auth-utils";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -13,7 +12,6 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
   const supabase = createClientComponentClient();
-  const router = useRouter();
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,7 +46,7 @@ export default function AdminDashboard() {
       
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .rpc('set_user_as_admin', { 
           admin_id: session.user.id, 
           target_user_id: userId 
@@ -110,10 +108,6 @@ export default function AdminDashboard() {
     return new Date(dateString).toLocaleString();
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
-
   return (
     <div className="min-h-[100dvh] bg-gray-50">
       <div className="p-4 sm:p-6 lg:p-8">
@@ -165,7 +159,13 @@ export default function AdminDashboard() {
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 bg-accent text-white rounded-full flex items-center justify-center">
                                 {user.avatar_url ? (
-                                  <img src={user.avatar_url} alt={`${user.first_name}'s avatar`} className="h-10 w-10 rounded-full" />
+                                  <Image 
+                                    src={user.avatar_url} 
+                                    alt={`${user.first_name}'s avatar`} 
+                                    width={40} 
+                                    height={40}
+                                    className="h-10 w-10 rounded-full" 
+                                  />
                                 ) : (
                                   <User className="h-5 w-5" />
                                 )}

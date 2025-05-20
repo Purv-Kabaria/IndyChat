@@ -1,7 +1,6 @@
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { ComplaintType, ComplaintStatus, ComplaintPriority, Complaint } from './complaints';
-import type { UserRole } from './auth-utils';
+import { Complaint } from './complaints';
 
 /**
  * Server-side function to get complaints (for server components)

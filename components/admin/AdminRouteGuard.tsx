@@ -23,7 +23,12 @@ export default function AdminRouteGuard({
   const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    type: string;
+    error?: unknown;
+    userId?: string;
+    data?: unknown;
+  } | null>(null);
 
   useEffect(() => {
     const checkAdminStatus = async () => {

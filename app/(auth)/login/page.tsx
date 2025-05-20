@@ -53,7 +53,7 @@ type AuthError = {
 
       if (profileError && profileError.code === 'PGRST116') {
         // First check if this user has admin privileges in auth metadata
-        const { data: userRoleData, error: roleError } = await supabase.auth.getUser();
+        const { data: userRoleData } = await supabase.auth.getUser();
         
         // Determine if the user should have admin role from metadata or previous setup
         const shouldBeAdmin = userRoleData?.user?.app_metadata?.role === 'admin';

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import {
   Loader2,
@@ -10,7 +10,6 @@ import {
   Info,
   RefreshCw,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 type Document = {
   id: string;
@@ -31,7 +30,6 @@ const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_KNOWLEDGE_BASE_API_KEY || "";
 const DIFY_DATASET_ID = process.env.NEXT_PUBLIC_DIFY_DATASET_ID || "";
 
 export default function DocumentsPage() {
-  const router = useRouter();
   const supabase = createClientComponentClient();
 
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -43,6 +41,15 @@ export default function DocumentsPage() {
     null
   );
   const [refreshing, setRefreshing] = useState(false);
+
+  const areDocumentsProcessing = useCallback(() => {
+    return documents.some(
+      (doc) =>
+        doc.indexing_status === "indexing" ||
+        doc.indexing_status === "waiting" ||
+        doc.display_status === "queuing"
+    );
+  }, [documents]);
 
   const loadDocuments = async () => {
     try {
@@ -78,10 +85,11 @@ export default function DocumentsPage() {
       const data = await response.json();
       setDocuments(data.data || []);
       setKnowledgeBaseStatus("Connected to Knowledge Base");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading documents:", error);
-      if (error.code) {
-        setError(`Dify API error (${error.code}): ${error.message}`);
+      if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
+        const typedError = error as {code: string, message: string};
+        setError(`Dify API error (${typedError.code}): ${typedError.message}`);
       } else {
         setError(
           error instanceof Error ? error.message : "Failed to load documents"
@@ -117,7 +125,7 @@ export default function DocumentsPage() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [documents]);
+  }, [documents, areDocumentsProcessing]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -220,10 +228,10 @@ export default function DocumentsPage() {
 
       setSuccess("Document uploaded successfully to knowledge base!");
       e.target.value = "";
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error uploading document:", error);
       setError(
-        error.message || error.toString() || "Failed to upload document"
+        error instanceof Error ? error.message : "Failed to upload document"
       );
     } finally {
       setUploading(false);
@@ -286,7 +294,7 @@ export default function DocumentsPage() {
                 errorData.message || response.statusText
               }`
             );
-          } catch (parseError) {
+          } catch {
             throw new Error(
               `Failed to delete document: ${response.statusText}`
             );
@@ -296,9 +304,9 @@ export default function DocumentsPage() {
 
       setDocuments(documents.filter((doc) => doc.id !== id));
       setSuccess("Document deleted successfully from knowledge base");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting document:", error);
-      setError(error.message || "Failed to delete document");
+      setError(error instanceof Error ? error.message : "Failed to delete document");
     } finally {
       setLoading(false);
     }
@@ -346,15 +354,6 @@ export default function DocumentsPage() {
           </span>
         );
     }
-  };
-
-  const areDocumentsProcessing = () => {
-    return documents.some(
-      (doc) =>
-        doc.indexing_status === "indexing" ||
-        doc.indexing_status === "waiting" ||
-        doc.display_status === "queuing"
-    );
   };
 
   return (
@@ -456,7 +455,7 @@ export default function DocumentsPage() {
                   <File className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                   <p>No documents in knowledge base yet</p>
                   <p className="text-sm mt-1">
-                    Upload your first document to enhance your AI's knowledge
+                    Upload your first document to enhance your AI&apos;s knowledge
                   </p>
                 </div>
               ) : (
@@ -579,7 +578,7 @@ export default function DocumentsPage() {
             <p>
               Documents uploaded here are sent to the knowledge base for
               retrieval augmented generation (RAG). This enhances your AI
-              chatbot's ability to answer questions based on your specific
+              chatbot&apos;s ability to answer questions based on your specific
               documents.
             </p>
             <ul className="list-disc list-inside mt-2 space-y-1">

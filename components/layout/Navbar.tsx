@@ -109,13 +109,13 @@ const Navbar = () => {
         
         {/* Desktop Navigation Links */}
         <div className="hidden lg:flex items-center space-x-10">
-          <a 
+          <Link 
             href="/" 
             className="text-[#333] font-medium hover:text-secondary"
             onClick={(e) => handleSmoothScroll(e, 'home')}
           >
             Home
-          </a>
+          </Link>
           <a 
             href="#features" 
             className="text-[#333] font-medium hover:text-secondary"

@@ -162,11 +162,11 @@ export default function ChatComponent() {
   const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
   const supabase = createClientComponentClient();
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const { profile } = useUserProfile();
+
+  const [userRole, setUserRole] = useState<UserRole | 'guest' | null>(null);
   const [showComplaintForm, setShowComplaintForm] = useState(false);
   const [complaintType, setComplaintType] = useState<ComplaintType>('complaint');
-
-  const { profile } = useUserProfile();
 
   const generateMessageId = () => {
     const counter = messageIdCounterRef.current;
@@ -465,24 +465,32 @@ export default function ChatComponent() {
     const checkUserRole = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (!error && data) {
-            setUserRole(data.role as UserRole);
-          }
+        
+        if (!session) {
+          setUserRole('guest');
+          return;
         }
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching user role:', error);
+          setUserRole('user');
+          return;
+        }
+        
+        setUserRole(data.role as UserRole);
       } catch (error) {
         console.error('Error checking user role:', error);
       }
     };
 
     checkUserRole();
-  }, [supabase.auth]);
+  }, [supabase]);
 
   // Function to detect complaint-related queries
   const detectComplaintIntent = (message: string): ComplaintType | null => {
