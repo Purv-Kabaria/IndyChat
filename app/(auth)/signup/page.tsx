@@ -24,21 +24,18 @@ function SignupPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
 
-  // Check if user is already authenticated
   useEffect(() => {
     const checkAuthStatus = async () => {
-      // Check for forceRedirect parameter
       const urlParams = new URLSearchParams(window.location.search);
       const forceRedirect = urlParams.get("forceRedirect");
 
       try {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
           if (user && forceRedirect !== "false") {
-            // User is already signed in, redirect to chat
             router.push("/chat");
             return;
           }
-          
+
           setSessionChecked(true);
         });
 
@@ -57,7 +54,6 @@ function SignupPageContent() {
     setLoading(true);
     setError(null);
 
-    // Validation
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -71,29 +67,32 @@ function SignupPageContent() {
     }
 
     try {
-      // Create user with Firebase Auth and Firestore profile
       await createUser(email, password, {
         first_name: firstName,
         last_name: lastName,
-        role: "user", // Default role is "user", not admin
+        role: "user",
       });
 
-      // Redirect to chat page after successful signup
       router.push("/chat");
     } catch (error: unknown) {
       console.error("Signup error:", error);
 
-      // Enhanced error reporting
       const authError = error as AuthError;
-      
-      if (authError.code === 'auth/email-already-in-use') {
-        setError("This email is already registered. Please try logging in instead.");
-      } else if (authError.code === 'auth/invalid-email') {
-        setError("Invalid email format. Please check your email and try again.");
-      } else if (authError.code === 'auth/weak-password') {
+
+      if (authError.code === "auth/email-already-in-use") {
+        setError(
+          "This email is already registered. Please try logging in instead."
+        );
+      } else if (authError.code === "auth/invalid-email") {
+        setError(
+          "Invalid email format. Please check your email and try again."
+        );
+      } else if (authError.code === "auth/weak-password") {
         setError("Password is too weak. Please choose a stronger password.");
-      } else if (authError.code === 'auth/network-request-failed') {
-        setError("Network error. Please check your internet connection and try again.");
+      } else if (authError.code === "auth/network-request-failed") {
+        setError(
+          "Network error. Please check your internet connection and try again."
+        );
       } else {
         setError(authError.message || "An error occurred during signup");
       }
@@ -108,7 +107,6 @@ function SignupPageContent() {
 
     try {
       await signInWithGoogle();
-      // Redirect will be handled by the auth state listener
     } catch (error: unknown) {
       console.error("Google sign in error:", error);
       const authError = error as AuthError;
@@ -130,7 +128,9 @@ function SignupPageContent() {
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
-      <Link href="/" className="absolute top-4 left-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white py-2 px-3 rounded-lg text-sm">
+      <Link
+        href="/"
+        className="absolute top-4 left-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white py-2 px-3 rounded-lg text-sm">
         <Home className="h-4 w-4" />
         <span>Back to Home</span>
       </Link>
@@ -149,7 +149,9 @@ function SignupPageContent() {
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-accent mb-1">
+              <label
+                htmlFor="firstName"
+                className="block text-sm font-medium text-accent mb-1">
                 First Name
               </label>
               <input
@@ -162,7 +164,9 @@ function SignupPageContent() {
               />
             </div>
             <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-accent mb-1">
+              <label
+                htmlFor="lastName"
+                className="block text-sm font-medium text-accent mb-1">
                 Last Name
               </label>
               <input
@@ -177,7 +181,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-accent mb-1">
               Email
             </label>
             <input
@@ -191,7 +197,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-accent mb-1">
               Password
             </label>
             <input
@@ -206,7 +214,9 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-accent mb-1">
               Confirm Password
             </label>
             <input
@@ -223,8 +233,7 @@ function SignupPageContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center"
-          >
+            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center">
             {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
             Sign Up
           </button>
@@ -236,23 +245,31 @@ function SignupPageContent() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              <span className="px-2 bg-white text-gray-500">
+                Or continue with
+              </span>
             </div>
           </div>
 
           <button
             onClick={handleGoogleSignup}
             disabled={loading}
-            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Image src="/images/google.svg" alt="Google" width={20} height={20} />
+            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors">
+            <Image
+              src="/images/google.svg"
+              alt="Google"
+              width={20}
+              height={20}
+            />
             Google
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{" "}
-          <Link href="/login" className="text-accent hover:underline font-medium">
+          <Link
+            href="/login"
+            className="text-accent hover:underline font-medium">
             Sign in
           </Link>
         </p>
@@ -261,7 +278,6 @@ function SignupPageContent() {
   );
 }
 
-// Loading fallback component
 function SignupPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">

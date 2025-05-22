@@ -2,7 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Camera, Check, X, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  Camera,
+  Check,
+  X,
+  Mail,
+  Calendar,
+  User,
+  Shield,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
+  ArrowLeft,
+} from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,15 +41,14 @@ type UserProfile = {
 
 export default function ProfilePage() {
   const router = useRouter();
-  
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Form state
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [address, setAddress] = useState("");
@@ -45,7 +58,7 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [sttEnabled, setSttEnabled] = useState(false);
-  
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -54,74 +67,80 @@ export default function ProfilePage() {
             router.push("/login?message=Please log in to view your profile");
             return;
           }
-          
+
           try {
-            // Get the user's profile from Firestore
             const profileData = await getUserProfile(user.uid);
-            
+
             if (!profileData) {
               console.log("No profile found for user, creating basic one");
-              
-              // Initialize with basic data if profile doesn't exist
+
               const userProfile: UserProfile = {
                 id: user.uid,
                 email: user.email || "",
-                first_name: user.displayName?.split(' ')[0] || "",
-                last_name: user.displayName?.split(' ').slice(1).join(' ') || "",
+                first_name: user.displayName?.split(" ")[0] || "",
+                last_name:
+                  user.displayName?.split(" ").slice(1).join(" ") || "",
                 avatar_url: user.photoURL || null,
                 address: null,
                 gender: null,
                 tts_enabled: false,
                 stt_enabled: false,
-                created_at: user.metadata.creationTime
+                created_at: user.metadata.creationTime,
               };
-              
-              // Create a profile in Firestore
+
               await updateUserProfile(user.uid, {
                 email: userProfile.email,
                 first_name: userProfile.first_name,
                 last_name: userProfile.last_name,
                 avatar_url: userProfile.avatar_url,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
               });
-              
+
               setProfile(userProfile);
               setFirstName(userProfile.first_name);
               setLastName(userProfile.last_name);
-              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
+              setAvatarUrl(
+                userProfile.avatar_url !== undefined
+                  ? userProfile.avatar_url
+                  : null
+              );
             } else {
-              // Use existing profile data
               const userProfile: UserProfile = {
                 id: user.uid,
                 email: user.email || "",
                 first_name: profileData.first_name || "",
                 last_name: profileData.last_name || "",
-                avatar_url: profileData.avatar_url || null,
-                address: profileData.address || null,
-                gender: profileData.gender || null,
-                tts_enabled: profileData.tts_enabled || false,
-                stt_enabled: profileData.stt_enabled || false,
-                created_at: profileData.created_at
+                avatar_url: typeof profileData.avatar_url === 'string' ? profileData.avatar_url : null,
+                address: typeof profileData.address === 'string' ? profileData.address : null,
+                gender: typeof profileData.gender === 'string' ? profileData.gender : null,
+                tts_enabled: Boolean(profileData.tts_enabled),
+                stt_enabled: Boolean(profileData.stt_enabled),
+                created_at: typeof profileData.created_at === 'string' ? profileData.created_at : undefined,
               };
-              
+
               setProfile(userProfile);
               setFirstName(userProfile.first_name);
               setLastName(userProfile.last_name);
               setAddress(userProfile.address || "");
               setGender(userProfile.gender || "");
-              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
+              setAvatarUrl(
+                userProfile.avatar_url !== undefined
+                  ? userProfile.avatar_url
+                  : null
+              );
               setTtsEnabled(userProfile.tts_enabled || false);
               setSttEnabled(userProfile.stt_enabled || false);
             }
-            
-            // Format creation date
+
             if (user.metadata.creationTime) {
               const date = new Date(user.metadata.creationTime);
-              setCreatedAt(date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              }));
+              setCreatedAt(
+                date.toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })
+              );
             }
           } catch (error) {
             console.error("Error fetching profile:", error);
@@ -130,24 +149,25 @@ export default function ProfilePage() {
             setLoading(false);
           }
         });
-        
+
         return () => unsubscribe();
       } catch (error: unknown) {
         console.error("Error in auth state:", error);
-        setError(error instanceof Error ? error.message : "Failed to load profile");
+        setError(
+          error instanceof Error ? error.message : "Failed to load profile"
+        );
         setLoading(false);
       }
     };
-    
+
     fetchUserProfile();
   }, [router]);
-  
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setAvatarFile(file);
-      
-      // Create a preview
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarUrl(reader.result as string);
@@ -165,36 +185,34 @@ export default function ProfilePage() {
     if (!isEditing) return;
     setSttEnabled(!sttEnabled);
   };
-  
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setUpdating(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
       let newAvatarUrl = profile?.avatar_url;
-      
-      // Upload new avatar if changed
+
       if (avatarFile && auth.currentUser) {
         const storage = getStorage();
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `avatars/${auth.currentUser.uid}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
+        const fileExt = avatarFile.name.split(".").pop();
+        const fileName = `avatars/${auth.currentUser.uid}-${Math.random()
+          .toString(36)
+          .substring(2)}.${fileExt}`;
+
         const storageRef = ref(storage, fileName);
-        
-        // Upload the file
+
         await uploadBytes(storageRef, avatarFile);
-        
-        // Get public URL
+
         newAvatarUrl = await getDownloadURL(storageRef);
       }
-      
+
       if (!auth.currentUser) {
         throw new Error("No authenticated user found");
       }
-      
-      // Update user profile in Firestore
+
       await updateUserProfile(auth.currentUser.uid, {
         first_name: firstName,
         last_name: lastName,
@@ -203,14 +221,13 @@ export default function ProfilePage() {
         avatar_url: newAvatarUrl || null,
         tts_enabled: ttsEnabled,
         stt_enabled: sttEnabled,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       });
-      
+
       setSuccess("Profile updated successfully");
       setIsEditing(false);
-      
-      // Update the local profile state
-      setProfile(prev => {
+
+      setProfile((prev) => {
         if (prev) {
           return {
             ...prev,
@@ -220,14 +237,16 @@ export default function ProfilePage() {
             gender,
             avatar_url: newAvatarUrl || null,
             tts_enabled: ttsEnabled,
-            stt_enabled: sttEnabled
+            stt_enabled: sttEnabled,
           };
         }
         return prev;
       });
     } catch (error: unknown) {
       console.error("Error updating profile:", error);
-      setError(error instanceof Error ? error.message : "Failed to update profile");
+      setError(
+        error instanceof Error ? error.message : "Failed to update profile"
+      );
     } finally {
       setUpdating(false);
     }
@@ -238,12 +257,14 @@ export default function ProfilePage() {
       await testTextToSpeech();
     } catch (error: unknown) {
       console.error("TTS test failed:", error);
-      setError(error instanceof Error ? error.message : "Text to speech test failed");
+      setError(
+        error instanceof Error ? error.message : "Text to speech test failed"
+      );
     }
   };
 
   const handleGoBack = () => {
-    router.push('/chat');
+    router.push("/chat");
   };
 
   if (loading) {
@@ -263,21 +284,20 @@ export default function ProfilePage() {
             variant="ghost"
             size="icon"
             className="mr-2 text-white hover:text-white/80 hover:bg-accent-dark"
-            onClick={handleGoBack}
-          >
+            onClick={handleGoBack}>
             <ArrowLeft size={20} />
           </Button>
           <h1 className="text-xl font-semibold">Your Profile</h1>
         </div>
-        
+
         {/* Avatar and basic info */}
         <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row items-center sm:items-start gap-6">
           {/* Avatar with edit option */}
           <div className="relative">
             <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 border-2 border-accent">
               {avatarUrl ? (
-                <Image 
-                  src={avatarUrl} 
+                <Image
+                  src={avatarUrl}
                   alt="Profile"
                   width={96}
                   height={96}
@@ -289,27 +309,28 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-            
+
             {isEditing && (
-              <label 
-                htmlFor="avatar-upload" 
-                className="absolute bottom-0 right-0 bg-accent text-white p-1 rounded-full cursor-pointer"
-              >
+              <label
+                htmlFor="avatar-upload"
+                className="absolute bottom-0 right-0 bg-accent text-white p-1 rounded-full cursor-pointer">
                 <Camera size={16} />
-                <input 
-                  id="avatar-upload" 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*" 
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
                   onChange={handleAvatarChange}
                 />
               </label>
             )}
           </div>
-          
+
           {/* Basic info */}
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-gray-800">{profile?.first_name} {profile?.last_name}</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {profile?.first_name} {profile?.last_name}
+            </h2>
             <div className="flex items-center justify-center sm:justify-start mt-2 text-gray-600">
               <Mail className="w-4 h-4 mr-2" />
               <span>{profile?.email}</span>
@@ -320,23 +341,22 @@ export default function ProfilePage() {
                 <span>Member since {createdAt}</span>
               </div>
             )}
-            
+
             {/* Edit/Save buttons */}
             <div className="mt-4 flex justify-center sm:justify-start gap-3">
               {!isEditing ? (
-                <Button 
+                <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
+                  className="bg-accent hover:bg-accent-dark text-white">
                   Edit Profile
                 </Button>
               ) : (
                 <>
-                  <Button 
+                  <Button
                     variant="secondary"
                     onClick={() => {
                       setIsEditing(false);
-                      // Reset form values
+
                       setFirstName(profile?.first_name || "");
                       setLastName(profile?.last_name || "");
                       setAddress(profile?.address || "");
@@ -345,16 +365,18 @@ export default function ProfilePage() {
                       setTtsEnabled(profile?.tts_enabled || false);
                       setSttEnabled(profile?.stt_enabled || false);
                       setAvatarFile(null);
-                    }}
-                  >
+                    }}>
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleSaveProfile}
                     className="bg-accent hover:bg-accent-dark text-white"
-                    disabled={updating}
-                  >
-                    {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                    disabled={updating}>
+                    {updating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
                     Save
                   </Button>
                 </>
@@ -362,7 +384,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-        
+
         {/* Status messages */}
         {error && (
           <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
@@ -370,14 +392,14 @@ export default function ProfilePage() {
             <p>{error}</p>
           </div>
         )}
-        
+
         {success && (
           <div className="mx-6 mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-start">
             <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
             <p>{success}</p>
           </div>
         )}
-        
+
         {/* Profile Form */}
         <form className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -392,13 +414,13 @@ export default function ProfilePage() {
                 disabled={!isEditing}
                 className={cn(
                   "w-full p-2 border rounded-md",
-                  isEditing 
-                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  isEditing
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent"
                     : "bg-gray-50 border-gray-200"
                 )}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Last Name
@@ -410,13 +432,13 @@ export default function ProfilePage() {
                 disabled={!isEditing}
                 className={cn(
                   "w-full p-2 border rounded-md",
-                  isEditing 
-                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  isEditing
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent"
                     : "bg-gray-50 border-gray-200"
                 )}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Address
@@ -428,13 +450,13 @@ export default function ProfilePage() {
                 disabled={!isEditing}
                 className={cn(
                   "w-full p-2 border rounded-md",
-                  isEditing 
-                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  isEditing
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent"
                     : "bg-gray-50 border-gray-200"
                 )}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Gender
@@ -445,11 +467,10 @@ export default function ProfilePage() {
                 disabled={!isEditing}
                 className={cn(
                   "w-full p-2 border rounded-md",
-                  isEditing 
-                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  isEditing
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent"
                     : "bg-gray-50 border-gray-200"
-                )}
-              >
+                )}>
                 <option value="">Prefer not to say</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -457,10 +478,12 @@ export default function ProfilePage() {
               </select>
             </div>
           </div>
-          
+
           {/* Accessibility settings */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Accessibility Settings</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Accessibility Settings
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
@@ -471,17 +494,18 @@ export default function ProfilePage() {
                   )}
                   <div>
                     <div className="font-medium">Text to Speech</div>
-                    <p className="text-sm text-gray-500">Enable voice responses from the assistant</p>
+                    <p className="text-sm text-gray-500">
+                      Enable voice responses from the assistant
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="mr-2"
                     onClick={testTTS}
-                    disabled={!ttsEnabled}
-                  >
+                    disabled={!ttsEnabled}>
                     Test
                   </Button>
                   <button
@@ -490,12 +514,9 @@ export default function ProfilePage() {
                     disabled={!isEditing}
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
-                      ttsEnabled 
-                        ? "bg-accent" 
-                        : "bg-gray-200",
+                      ttsEnabled ? "bg-accent" : "bg-gray-200",
                       !isEditing && "opacity-60 cursor-not-allowed"
-                    )}
-                  >
+                    )}>
                     <span
                       className={cn(
                         "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
@@ -505,7 +526,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   {sttEnabled ? (
@@ -515,7 +536,9 @@ export default function ProfilePage() {
                   )}
                   <div>
                     <div className="font-medium">Speech to Text</div>
-                    <p className="text-sm text-gray-500">Speak to the assistant instead of typing</p>
+                    <p className="text-sm text-gray-500">
+                      Speak to the assistant instead of typing
+                    </p>
                   </div>
                 </div>
                 <button
@@ -524,12 +547,9 @@ export default function ProfilePage() {
                   disabled={!isEditing}
                   className={cn(
                     "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
-                    sttEnabled 
-                      ? "bg-accent" 
-                      : "bg-gray-200",
+                    sttEnabled ? "bg-accent" : "bg-gray-200",
                     !isEditing && "opacity-60 cursor-not-allowed"
-                  )}
-                >
+                  )}>
                   <span
                     className={cn(
                       "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
@@ -541,7 +561,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </form>
-        
+
         {/* Sign Out Section */}
         <div className="p-6 border-t border-gray-200">
           <div className="flex items-center justify-between">
@@ -549,7 +569,9 @@ export default function ProfilePage() {
               <Shield className="h-5 w-5 text-gray-400 mr-3" />
               <div>
                 <div className="font-medium">Account Security</div>
-                <p className="text-sm text-gray-500">Sign out from your account</p>
+                <p className="text-sm text-gray-500">
+                  Sign out from your account
+                </p>
               </div>
             </div>
             <SignOutButton />

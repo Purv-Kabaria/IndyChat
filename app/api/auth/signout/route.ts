@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { adminAuth } from "@/app/api/auth/firebase-admin";
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("__session")?.value;

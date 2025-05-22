@@ -32,11 +32,36 @@ const rateLimitCache: Record<string, RateLimitEntry> = {};
 const RATE_LIMIT_WINDOW = 60000;
 const RATE_LIMIT_MAX = 5;
 
-const handleFirebaseError = (error: any, context: string) => {
+interface UserData {
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  email_verified?: boolean;
+  [key: string]: unknown;
+}
+
+interface UserProfile {
+  id?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  role?: string;
+  email_verified?: boolean;
+  created_at?: {
+    toDate: () => Date;
+  } | string;
+  updated_at?: {
+    toDate: () => Date;
+  } | string;
+  [key: string]: unknown;
+}
+
+const handleFirebaseError = (error: unknown, context: string) => {
   console.error(`Firebase ${context} error:`, error);
 
-  const errorCode = error.code || "unknown";
-  const errorMessage = error.message || `An error occurred during ${context}`;
+  const errorCode = (error as { code?: string })?.code || "unknown";
+  const errorMessage = (error as Error)?.message || `An error occurred during ${context}`;
 
   if (process.env.NODE_ENV === "production") {
   }
@@ -90,8 +115,8 @@ if (typeof window !== "undefined") {
 export const createUser = async (
   email: string,
   password: string,
-  userData: any
-): Promise<{ user: User | null; error: any | null }> => {
+  userData: UserData
+): Promise<{ user: User | null; error: { code: string; message: string; originalError: unknown } | null }> => {
   try {
     const ipAddress = "client";
     if (!checkRateLimit(`createUser_${ipAddress}`)) {
@@ -125,7 +150,7 @@ export const createUser = async (
 export const signIn = async (
   email: string,
   password: string
-): Promise<{ user: User | null; error: any | null }> => {
+): Promise<{ user: User | null; error: { code: string; message: string; originalError: unknown } | null }> => {
   try {
     const ipAddress = "client";
     if (!checkRateLimit(`signIn_${ipAddress}`)) {
@@ -145,7 +170,7 @@ export const signIn = async (
 
 export const signInWithGoogle = async (): Promise<{
   user: User | null;
-  error: any | null;
+  error: { code: string; message: string; originalError: unknown } | null;
 }> => {
   try {
     const userCredential = await signInWithPopup(auth, googleProvider);
@@ -173,7 +198,7 @@ export const signInWithGoogle = async (): Promise<{
 
 export const logOut = async (): Promise<{
   success: boolean;
-  error: any | null;
+  error: { code: string; message: string; originalError: unknown } | null;
 }> => {
   try {
     await signOut(auth);
@@ -195,8 +220,8 @@ export const logOut = async (): Promise<{
 
 export const createUserProfile = async (
   userId: string,
-  data: any
-): Promise<{ success: boolean; error: any | null }> => {
+  data: Record<string, unknown>
+): Promise<{ success: boolean; error: { code: string; message: string; originalError: unknown } | null }> => {
   try {
     const userRef = doc(db, "users", userId);
     await setDoc(userRef, {
@@ -224,13 +249,13 @@ export const checkUserExists = async (userId: string): Promise<boolean> => {
   }
 };
 
-export const getUserProfile = async (userId: string): Promise<any> => {
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
-      return userSnap.data();
+      return userSnap.data() as UserProfile;
     }
 
     return null;
@@ -242,8 +267,8 @@ export const getUserProfile = async (userId: string): Promise<any> => {
 
 export const updateUserProfile = async (
   userId: string,
-  data: any
-): Promise<{ success: boolean; error: any | null }> => {
+  data: Record<string, unknown>
+): Promise<{ success: boolean; error: { code: string; message: string; originalError: unknown } | null }> => {
   try {
     const userRef = doc(db, "users", userId);
     await updateDoc(userRef, {
@@ -271,7 +296,7 @@ export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
 
 export const sendPasswordReset = async (
   email: string
-): Promise<{ success: boolean; error: any | null }> => {
+): Promise<{ success: boolean; error: { code: string; message: string; originalError: unknown } | null }> => {
   try {
     await sendPasswordResetEmail(auth, email);
     return { success: true, error: null };

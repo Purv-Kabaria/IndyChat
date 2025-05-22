@@ -14,22 +14,15 @@ import {
   AuthError,
 } from "firebase/auth";
 
-type VerificationError = {
-  message: string;
-  code?: string;
-};
-
 function VerifyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
   const oobCode = searchParams.get("oobCode") || "";
   const mode = searchParams.get("mode") || "";
-  const redirectTo = searchParams.get("redirectTo") || "/chat";
 
   const { user } = useAuth();
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
@@ -38,7 +31,7 @@ function VerifyPageContent() {
   useEffect(() => {
     const verifyEmailLink = async () => {
       if (oobCode && mode === "verifyEmail") {
-        setLoading(true);
+        setIsVerifying(true);
         try {
           await checkActionCode(auth, oobCode);
 
@@ -70,7 +63,7 @@ function VerifyPageContent() {
 
           setError(errorMessage);
         } finally {
-          setLoading(false);
+          setIsVerifying(false);
           setSessionChecking(false);
         }
       } else {
@@ -99,28 +92,6 @@ function VerifyPageContent() {
       checkVerificationStatus();
     }
   }, [oobCode, mode, user, router]);
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      setError(
-        "This verification method is not supported. Please use the verification link sent to your email."
-      );
-    } catch (error: unknown) {
-      console.error("Verification error:", error);
-
-      const verifyError = error as VerificationError;
-      let errorMessage =
-        verifyError.message || "Invalid or expired code. Please try again.";
-
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleResendVerification = async () => {
     if (!email) {
@@ -203,7 +174,13 @@ function VerifyPageContent() {
           </div>
         )}
 
-        {!oobCode && (
+        {isVerifying && (
+          <div className="flex justify-center my-6">
+            <Loader2 className="h-6 w-6 animate-spin text-accent" />
+          </div>
+        )}
+
+        {!oobCode && !isVerifying && (
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500 mb-4">
               Didn&apos;t receive a verification link?

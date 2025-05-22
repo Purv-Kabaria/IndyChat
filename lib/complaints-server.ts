@@ -1,9 +1,17 @@
 import { cookies } from "next/headers";
-import { Complaint } from "./complaints";
+import { Complaint, ComplaintWithProfiles } from "./complaints";
 import { adminAuth, adminDb } from "../app/api/auth/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, DocumentData } from "firebase-admin/firestore";
 
-export async function getComplaintsServer() {
+interface UserProfileData {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
+export async function getComplaintsServer(): Promise<ComplaintWithProfiles[] | null> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("firebase-auth-token")?.value;
@@ -25,7 +33,7 @@ export async function getComplaintsServer() {
       return null;
     }
 
-    const userData = userSnap.data();
+    const userData = userSnap.data() as UserProfileData;
 
     if (userData?.role === "admin") {
       const complaintsRef = adminDb.collection("complaints");
@@ -33,25 +41,25 @@ export async function getComplaintsServer() {
         .orderBy("created_at", "desc")
         .get();
 
-      const complaints: any[] = [];
+      const complaints: ComplaintWithProfiles[] = [];
 
       for (const doc of complaintsSnap.docs) {
         const data = doc.data();
 
-        let userProfileData = null;
+        let userProfileData: UserProfileData | null = null;
         try {
           const userProfileSnap = await adminDb
             .collection("users")
             .doc(data.user_id)
             .get();
           if (userProfileSnap.exists) {
-            userProfileData = userProfileSnap.data();
+            userProfileData = userProfileSnap.data() as UserProfileData;
           }
         } catch (e) {
           console.error(`Error fetching profile for user ${data.user_id}:`, e);
         }
 
-        let assignedProfileData = null;
+        let assignedProfileData: UserProfileData | null = null;
         if (data.assigned_to) {
           try {
             const assignedProfileSnap = await adminDb
@@ -59,7 +67,7 @@ export async function getComplaintsServer() {
               .doc(data.assigned_to)
               .get();
             if (assignedProfileSnap.exists) {
-              assignedProfileData = assignedProfileSnap.data();
+              assignedProfileData = assignedProfileSnap.data() as UserProfileData;
             }
           } catch (e) {
             console.error(
@@ -91,7 +99,7 @@ export async function getComplaintsServer() {
                 last_name: assignedProfileData.last_name,
               }
             : null,
-        });
+        } as ComplaintWithProfiles);
       }
 
       return complaints;
@@ -102,9 +110,9 @@ export async function getComplaintsServer() {
         .orderBy("created_at", "desc")
         .get();
 
-      const complaints: any[] = [];
+      const complaints: Complaint[] = [];
 
-      complaintsSnap.forEach((doc: any) => {
+      complaintsSnap.forEach((doc) => {
         const data = doc.data();
         complaints.push({
           id: doc.id,
@@ -115,7 +123,7 @@ export async function getComplaintsServer() {
           updated_at: data.updated_at
             ? data.updated_at.toDate().toISOString()
             : undefined,
-        });
+        } as Complaint);
       });
 
       return complaints;
@@ -128,7 +136,7 @@ export async function getComplaintsServer() {
 
 export async function submitComplaintServer(
   complaint: Omit<Complaint, "id" | "created_at" | "updated_at">
-) {
+): Promise<Complaint> {
   try {
     if (!complaint.status) complaint.status = "open";
     if (!complaint.priority) complaint.priority = "medium";
@@ -157,7 +165,7 @@ export async function submitComplaintServer(
     });
 
     const docSnap = await docRef.get();
-    const data = docSnap.data();
+    const data = docSnap.data() as DocumentData;
 
     return {
       id: docRef.id,
@@ -168,7 +176,7 @@ export async function submitComplaintServer(
       updated_at: data?.updated_at
         ? data.updated_at.toDate().toISOString()
         : undefined,
-    };
+    } as Complaint;
   } catch (error) {
     console.error("Error submitting complaint (server):", error);
     throw error;

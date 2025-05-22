@@ -12,14 +12,14 @@ interface FirebaseAdminError extends Error {
   context?: string;
 }
 
-const handleAdminError = (error: any, context: string): FirebaseAdminError => {
+const handleAdminError = (error: unknown, context: string): FirebaseAdminError => {
   console.error(`Firebase Admin ${context} error:`, error);
 
   const adminError: FirebaseAdminError = new Error(
-    error.message || `An error occurred during ${context}`
+    (error as Error)?.message || `An error occurred during ${context}`
   );
 
-  adminError.code = error.code || "unknown";
+  adminError.code = (error as { code?: string })?.code || "unknown";
   adminError.context = context;
 
   if (process.env.NODE_ENV === "production") {
@@ -30,9 +30,9 @@ const handleAdminError = (error: any, context: string): FirebaseAdminError => {
 
 const firebaseAdminConfig = {
   credential: cert({
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n") || '',
   }),
   databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
@@ -50,6 +50,18 @@ const validateConfig = () => {
       throw new Error(`Missing required environment variable: ${varName}`);
     }
   }
+  
+  // Explicitly check for project_id
+  if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+    throw new Error("Missing required environment variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  }
+  
+  // Debug logging
+  console.log("Firebase Admin Config:", {
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+    hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+  });
 };
 
 export function initFirebaseAdmin(): App {
@@ -114,7 +126,7 @@ export async function getUserById(uid: string) {
 
 export async function createCustomToken(
   uid: string,
-  claims?: Record<string, any>
+  claims?: Record<string, unknown>
 ) {
   try {
     const auth = getAdminAuth();
@@ -126,7 +138,7 @@ export async function createCustomToken(
 
 export async function setCustomUserClaims(
   uid: string,
-  claims: Record<string, any>
+  claims: Record<string, unknown>
 ) {
   try {
     const auth = getAdminAuth();

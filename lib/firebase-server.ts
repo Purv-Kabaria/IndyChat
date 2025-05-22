@@ -13,9 +13,13 @@ interface UserProfile {
   last_name?: string;
   avatar_url?: string;
   role?: string;
-  created_at?: any;
-  updated_at?: any;
-  [key: string]: any;
+  created_at?: {
+    toDate: () => Date;
+  } | string;
+  updated_at?: {
+    toDate: () => Date;
+  } | string;
+  [key: string]: unknown;
 }
 
 export const getCurrentUser = cache(

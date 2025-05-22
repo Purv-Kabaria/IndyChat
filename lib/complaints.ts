@@ -34,6 +34,18 @@ export interface Complaint {
   assigned_to?: string | null;
 }
 
+export interface ComplaintWithProfiles extends Complaint {
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  } | null;
+  assigned_profiles?: {
+    first_name?: string;
+    last_name?: string;
+  } | null;
+}
+
 export async function submitComplaint(
   complaint: Omit<Complaint, "id" | "created_at" | "updated_at">
 ) {
@@ -132,7 +144,7 @@ export async function getAllComplaints() {
     const q = query(complaintsRef, orderBy("created_at", "desc"));
 
     const querySnapshot = await getDocs(q);
-    const complaints: any[] = [];
+    const complaints: ComplaintWithProfiles[] = [];
 
     for (const doc of querySnapshot.docs) {
       const data = doc.data();
@@ -178,7 +190,7 @@ export async function getAllComplaints() {
               last_name: assignedProfileData.last_name,
             }
           : null,
-      });
+      } as ComplaintWithProfiles);
     }
 
     return complaints;
@@ -209,7 +221,7 @@ export async function updateComplaintStatus(
 
     const updateData: {
       status: ComplaintStatus;
-      updated_at: any;
+      updated_at: ReturnType<typeof serverTimestamp>;
       resolved_at?: string;
       resolution_notes?: string;
       priority?: ComplaintPriority;

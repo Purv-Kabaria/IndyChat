@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { auth, getUserProfile } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useState, useEffect } from "react";
+import { auth, getUserProfile } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 export type UserProfile = {
   id: string;
@@ -31,21 +31,20 @@ export function useUserProfile() {
           return;
         }
 
-        // Set profile data
         const userProfile: UserProfile = {
           id: userId,
           email: userData.email || "",
           first_name: userData.first_name || "",
           last_name: userData.last_name || "",
-          avatar_url: userData.avatar_url || null,
-          address: userData.address || null,
-          gender: userData.gender || null,
-          tts_enabled: userData.tts_enabled || false,
-          stt_enabled: userData.stt_enabled || false,
-          voice_id: userData.voice_id || undefined,
+          avatar_url: typeof userData.avatar_url === 'string' ? userData.avatar_url : null,
+          address: typeof userData.address === 'string' ? userData.address : null,
+          gender: typeof userData.gender === 'string' ? userData.gender : null,
+          tts_enabled: Boolean(userData.tts_enabled),
+          stt_enabled: Boolean(userData.stt_enabled),
+          voice_id: typeof userData.voice_id === 'string' ? userData.voice_id : undefined,
           role: userData.role || "user",
         };
-        
+
         setProfile(userProfile);
       } catch (error: unknown) {
         console.error("Error fetching user profile:", error);
@@ -54,8 +53,7 @@ export function useUserProfile() {
         setLoading(false);
       }
     };
-    
-    // Listen for auth state changes
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchUserProfile(user.uid);
@@ -64,11 +62,11 @@ export function useUserProfile() {
         setLoading(false);
       }
     });
-    
+
     return () => {
       unsubscribe();
     };
   }, []);
 
   return { profile, loading, error };
-} 
+}

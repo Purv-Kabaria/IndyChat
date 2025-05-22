@@ -10,9 +10,26 @@ import {
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth, getUserProfile } from "./firebase";
 
+interface UserProfile {
+  id?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  role?: string;
+  email_verified?: boolean;
+  created_at?: {
+    toDate: () => Date;
+  } | string;
+  updated_at?: {
+    toDate: () => Date;
+  } | string;
+  [key: string]: unknown;
+}
+
 type AuthContextType = {
   user: User | null;
-  userProfile: any | null;
+  userProfile: UserProfile | null;
   loading: boolean;
 };
 
@@ -26,7 +43,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (user) {
         try {
           const profileData = await getUserProfile(user.uid);
-          setUserProfile(profileData);
+          setUserProfile(profileData as UserProfile);
         } catch (error) {
           console.error("Error fetching user profile:", error);
         }

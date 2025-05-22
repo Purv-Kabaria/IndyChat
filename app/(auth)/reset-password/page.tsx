@@ -4,7 +4,6 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { sendPasswordReset } from "@/lib/firebase";
-import { AuthError } from "firebase/auth";
 
 type FirebaseError = {
   code?: string;

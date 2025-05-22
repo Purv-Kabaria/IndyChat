@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const decodedToken = await verifyIdToken(idToken);
+      await verifyIdToken(idToken);
 
       const sessionCookie = await adminAuth.createSessionCookie(idToken, {
         expiresIn: SESSION_EXPIRY * 1000,
@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ status: "success" });
-    } catch (error) {
-      console.error("Error creating session:", error);
+    } catch (sessionError) {
+      console.error("Error creating session:", sessionError);
       return NextResponse.json({ error: "Invalid ID token" }, { status: 401 });
     }
-  } catch (error) {
-    console.error("Session creation error:", error);
+  } catch (requestError) {
+    console.error("Session creation error:", requestError);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -65,11 +65,11 @@ export async function GET() {
           emailVerified: decodedClaims.email_verified,
         },
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json({ authenticated: false });
     }
-  } catch (error) {
-    console.error("Session verification error:", error);
+  } catch (sessionError) {
+    console.error("Session verification error:", sessionError);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -90,8 +90,8 @@ export async function DELETE() {
     });
 
     return NextResponse.json({ status: "success" });
-  } catch (error) {
-    console.error("Session deletion error:", error);
+  } catch (sessionError) {
+    console.error("Session deletion error:", sessionError);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

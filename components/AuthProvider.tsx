@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { AuthProvider as FirebaseAuthProvider } from "@/hooks/useAuth";
-import { auth, getUserProfile } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User, getIdToken } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
