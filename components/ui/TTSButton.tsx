@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 import { UserProfile } from "@/hooks/useUserProfile";
 import { playTextToSpeech } from "@/functions/ttsUtils";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { auth, updateUserProfile } from "@/lib/firebase";
 
 interface TTSButtonProps {
   text: string;
@@ -36,14 +36,15 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
       
       if (enableTTS) {
         try {
-          // Create Supabase client
-          const supabase = createClientComponentClient();
+          // Check if user is authenticated
+          const currentUser = auth.currentUser;
+          if (!currentUser || !profile?.id) {
+            throw new Error("You must be logged in to enable text-to-speech");
+          }
           
-          // Update user metadata
-          await supabase.auth.updateUser({
-            data: {
-              tts_enabled: true,
-            },
+          // Update user profile in Firestore
+          await updateUserProfile(profile.id, {
+            tts_enabled: true,
           });
           
           alert("Text-to-speech has been enabled. You can now listen to messages.");

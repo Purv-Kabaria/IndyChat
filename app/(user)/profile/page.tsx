@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Loader2, Camera, Check, X, Mail, Calendar, User, Shield, Volume2, VolumeX, Mic, MicOff, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { testTextToSpeech } from "@/functions/ttsUtils";
 import SignOutButton from "@/components/SignOutButton";
+import { auth, getUserProfile, updateUserProfile } from "@/lib/firebase";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { onAuthStateChanged } from "firebase/auth";
 
 type UserProfile = {
   id: string;
@@ -20,11 +22,11 @@ type UserProfile = {
   gender: string | null;
   tts_enabled?: boolean;
   stt_enabled?: boolean;
+  created_at?: string;
 };
 
 export default function ProfilePage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,141 +45,102 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [sttEnabled, setSttEnabled] = useState(false);
-
+  
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) throw sessionError;
-        
-        if (!session) {
-          router.push("/login?message=Please log in to view your profile");
-          return;
-        }
-        
-        // Get user data from auth.users
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) throw userError;
-        
-        if (!userData.user) {
-          router.push("/login?message=User not found");
-          return;
-        }
-        
-        let user = userData.user;
-        
-        // Check if this user has a complete profile in the database
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', user.id)
-          .single();
-        
-        // If there's no profile data or important fields are missing, initialize them
-        if (profileError || !profileData || !profileData.first_name || !profileData.last_name) {
-          // For any user (not just OAuth), initialize the database profile with metadata
-          let firstName = user.user_metadata?.first_name || '';
-          let lastName = user.user_metadata?.last_name || '';
-          let avatarUrl = user.user_metadata?.avatar_url || null;
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            router.push("/login?message=Please log in to view your profile");
+            return;
+          }
           
-          // For OAuth users specifically, try to get name from raw metadata
-          const isOAuthUser = user.app_metadata?.provider === 'google';
-          if (isOAuthUser && (!firstName || !lastName)) {
-            const rawUserData = user.user_metadata?.raw_user_meta_data || {};
-            const googleName = rawUserData.name || '';
-            avatarUrl = rawUserData.picture || avatarUrl;
+          try {
+            // Get the user's profile from Firestore
+            const profileData = await getUserProfile(user.uid);
             
-            if (googleName && !firstName && !lastName) {
-              // Split the name into first and last name
-              const nameParts = googleName.split(' ');
-              firstName = nameParts[0] || '';
-              lastName = nameParts.slice(1).join(' ') || '';
+            if (!profileData) {
+              console.log("No profile found for user, creating basic one");
               
-              // Update auth metadata if we got new info from raw data
-              if (firstName || lastName) {
-                const { error: updateError } = await supabase.auth.updateUser({
-                  data: {
-                    first_name: firstName,
-                    last_name: lastName,
-                    avatar_url: avatarUrl,
-                    tts_enabled: false,
-                    stt_enabled: false,
-                  }
-                });
-                
-                if (updateError) {
-                  console.error("Error updating user metadata:", updateError);
-                } else {
-                  // Refresh user data
-                  const { data: refreshedUser } = await supabase.auth.getUser();
-                  if (refreshedUser.user) {
-                    user = refreshedUser.user;
-                  }
-                }
-              }
+              // Initialize with basic data if profile doesn't exist
+              const userProfile: UserProfile = {
+                id: user.uid,
+                email: user.email || "",
+                first_name: user.displayName?.split(' ')[0] || "",
+                last_name: user.displayName?.split(' ').slice(1).join(' ') || "",
+                avatar_url: user.photoURL || null,
+                address: null,
+                gender: null,
+                tts_enabled: false,
+                stt_enabled: false,
+                created_at: user.metadata.creationTime
+              };
+              
+              // Create a profile in Firestore
+              await updateUserProfile(user.uid, {
+                email: userProfile.email,
+                first_name: userProfile.first_name,
+                last_name: userProfile.last_name,
+                avatar_url: userProfile.avatar_url,
+                updated_at: new Date().toISOString()
+              });
+              
+              setProfile(userProfile);
+              setFirstName(userProfile.first_name);
+              setLastName(userProfile.last_name);
+              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
+            } else {
+              // Use existing profile data
+              const userProfile: UserProfile = {
+                id: user.uid,
+                email: user.email || "",
+                first_name: profileData.first_name || "",
+                last_name: profileData.last_name || "",
+                avatar_url: profileData.avatar_url || null,
+                address: profileData.address || null,
+                gender: profileData.gender || null,
+                tts_enabled: profileData.tts_enabled || false,
+                stt_enabled: profileData.stt_enabled || false,
+                created_at: profileData.created_at
+              };
+              
+              setProfile(userProfile);
+              setFirstName(userProfile.first_name);
+              setLastName(userProfile.last_name);
+              setAddress(userProfile.address || "");
+              setGender(userProfile.gender || "");
+              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
+              setTtsEnabled(userProfile.tts_enabled || false);
+              setSttEnabled(userProfile.stt_enabled || false);
             }
-          }
-          
-          // Update the profiles table with the best data we have
-          const { error: updateProfileError } = await supabase
-            .from('profiles')
-            .update({
-              first_name: firstName,
-              last_name: lastName,
-              avatar_url: avatarUrl,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', user.id);
             
-          if (updateProfileError) {
-            console.error("Error updating profile in database:", updateProfileError);
+            // Format creation date
+            if (user.metadata.creationTime) {
+              const date = new Date(user.metadata.creationTime);
+              setCreatedAt(date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }));
+            }
+          } catch (error) {
+            console.error("Error fetching profile:", error);
+            setError("Failed to load profile");
+          } finally {
+            setLoading(false);
           }
-        }
+        });
         
-        // Set profile data
-        const userProfile: UserProfile = {
-          id: user.id,
-          email: user.email || "",
-          first_name: user.user_metadata?.first_name || "",
-          last_name: user.user_metadata?.last_name || "",
-          avatar_url: user.user_metadata?.avatar_url || null,
-          address: user.user_metadata?.address || null,
-          gender: user.user_metadata?.gender || null,
-          tts_enabled: user.user_metadata?.tts_enabled || false,
-          stt_enabled: user.user_metadata?.stt_enabled || false,
-        };
-        
-        setProfile(userProfile);
-        setFirstName(userProfile.first_name);
-        setLastName(userProfile.last_name);
-        setAddress(userProfile.address || "");
-        setGender(userProfile.gender || "");
-        setAvatarUrl(userProfile.avatar_url);
-        setTtsEnabled(userProfile.tts_enabled || false);
-        setSttEnabled(userProfile.stt_enabled || false);
-        
-        // Format creation date
-        if (user.created_at) {
-          const date = new Date(user.created_at);
-          setCreatedAt(date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          }));
-        }
+        return () => unsubscribe();
       } catch (error: unknown) {
-        console.error("Error fetching user profile:", error);
+        console.error("Error in auth state:", error);
         setError(error instanceof Error ? error.message : "Failed to load profile");
-      } finally {
         setLoading(false);
       }
     };
     
     fetchUserProfile();
-  }, [router, supabase]);
+  }, [router]);
   
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -213,69 +176,55 @@ export default function ProfilePage() {
       let newAvatarUrl = profile?.avatar_url;
       
       // Upload new avatar if changed
-      if (avatarFile) {
+      if (avatarFile && auth.currentUser) {
+        const storage = getStorage();
         const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${profile?.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const fileName = `avatars/${auth.currentUser.uid}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, avatarFile);
-          
-        if (uploadError) throw uploadError;
+        const storageRef = ref(storage, fileName);
+        
+        // Upload the file
+        await uploadBytes(storageRef, avatarFile);
         
         // Get public URL
-        const { data } = await supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-          
-        newAvatarUrl = data.publicUrl;
+        newAvatarUrl = await getDownloadURL(storageRef);
       }
       
-      // Update user metadata in auth
-      const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          address,
-          gender,
-          avatar_url: newAvatarUrl,
-          tts_enabled: ttsEnabled,
-          stt_enabled: sttEnabled,
-        }
+      if (!auth.currentUser) {
+        throw new Error("No authenticated user found");
+      }
+      
+      // Update user profile in Firestore
+      await updateUserProfile(auth.currentUser.uid, {
+        first_name: firstName,
+        last_name: lastName,
+        address,
+        gender,
+        avatar_url: newAvatarUrl || null,
+        tts_enabled: ttsEnabled,
+        stt_enabled: sttEnabled,
+        updated_at: new Date().toISOString()
       });
       
-      if (authError) throw authError;
-      
-      // IMPORTANT: Also update the profiles table in the database
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          address,
-          avatar_url: newAvatarUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', profile?.id);
-      
-      if (profileError) throw profileError;
-      
-      // Update local state
-      if (profile) {
-        setProfile({
-          ...profile,
-          first_name: firstName,
-          last_name: lastName,
-          address,
-          gender,
-          avatar_url: newAvatarUrl || null,
-          tts_enabled: ttsEnabled,
-          stt_enabled: sttEnabled,
-        });
-      }
-      
-      setSuccess("Profile updated successfully!");
+      setSuccess("Profile updated successfully");
       setIsEditing(false);
+      
+      // Update the local profile state
+      setProfile(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            first_name: firstName,
+            last_name: lastName,
+            address,
+            gender,
+            avatar_url: newAvatarUrl || null,
+            tts_enabled: ttsEnabled,
+            stt_enabled: sttEnabled
+          };
+        }
+        return prev;
+      });
     } catch (error: unknown) {
       console.error("Error updating profile:", error);
       setError(error instanceof Error ? error.message : "Failed to update profile");
@@ -287,457 +236,325 @@ export default function ProfilePage() {
   const testTTS = async () => {
     try {
       await testTextToSpeech();
-    } catch (error) {
-      console.error('Error testing TTS:', error);
-      setError('Failed to test text-to-speech');
+    } catch (error: unknown) {
+      console.error("TTS test failed:", error);
+      setError(error instanceof Error ? error.message : "Text to speech test failed");
     }
   };
-  
-  // Add state for handling navigation
+
   const handleGoBack = () => {
-    router.back();
+    router.push('/chat');
   };
-  
+
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+        <Loader2 className="h-8 w-8 animate-spin text-secondary" />
       </div>
     );
   }
-  
+
   return (
-    <div className="h-screen w-full flex flex-col bg-gradient-to-b from-primary/5 via-transparent to-transparent px-4 sm:px-6 overflow-hidden">
-      <div className="max-w-5xl mx-auto w-full flex flex-col h-full py-4">
-        {/* Back button */}
-        <div className="mb-2">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2 hover:bg-primary/5 h-8 px-3 py-1 text-sm"
+    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-primary via-primary to-accent/10 px-4 py-8 sm:px-6">
+      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Header with back button */}
+        <div className="bg-accent text-white p-4 flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-2 text-white hover:text-white/80 hover:bg-accent-dark"
             onClick={handleGoBack}
           >
-            <ArrowLeft className="h-3 w-3" />
-            Back
+            <ArrowLeft size={20} />
           </Button>
+          <h1 className="text-xl font-semibold">Your Profile</h1>
         </div>
         
-        {/* Profile content */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden flex-1 flex flex-col">
-          <div className="bg-gradient-to-b from-primary to-accent h-24 relative">
-            {/* Profile avatar - centered on mobile, right side on desktop */}
-            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 h-24 w-24 rounded-full border-4 border-white overflow-hidden bg-white">
+        {/* Avatar and basic info */}
+        <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+          {/* Avatar with edit option */}
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 border-2 border-accent">
               {avatarUrl ? (
                 <Image 
                   src={avatarUrl} 
-                  alt="Profile" 
-                  width={96} 
-                  height={96} 
-                  className="h-full w-full object-cover"
+                  alt="Profile"
+                  width={96}
+                  height={96}
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="h-full w-full flex items-center justify-center bg-accent/10 text-accent text-3xl font-bold">
-                  {profile?.first_name?.[0]?.toUpperCase() || profile?.email?.[0]?.toUpperCase() || '?'}
+                <div className="w-full h-full bg-accent/20 flex items-center justify-center">
+                  <User size={40} className="text-accent" />
                 </div>
               )}
             </div>
             
-            {/* Name and email - hidden on mobile, visible on desktop */}
-            <div className="hidden md:block absolute bottom-3 left-8 text-white">
-              <h1 className="text-2xl font-cal font-bold">
-                {profile?.first_name} {profile?.last_name}
-              </h1>
-              <p className="text-white/80 flex items-center gap-1 text-sm">
-                <Mail className="h-3 w-3" />
-                {profile?.email}
-              </p>
+            {isEditing && (
+              <label 
+                htmlFor="avatar-upload" 
+                className="absolute bottom-0 right-0 bg-accent text-white p-1 rounded-full cursor-pointer"
+              >
+                <Camera size={16} />
+                <input 
+                  id="avatar-upload" 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange}
+                />
+              </label>
+            )}
+          </div>
+          
+          {/* Basic info */}
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-2xl font-bold text-gray-800">{profile?.first_name} {profile?.last_name}</h2>
+            <div className="flex items-center justify-center sm:justify-start mt-2 text-gray-600">
+              <Mail className="w-4 h-4 mr-2" />
+              <span>{profile?.email}</span>
+            </div>
+            {createdAt && (
+              <div className="flex items-center justify-center sm:justify-start mt-2 text-gray-600">
+                <Calendar className="w-4 h-4 mr-2" />
+                <span>Member since {createdAt}</span>
+              </div>
+            )}
+            
+            {/* Edit/Save buttons */}
+            <div className="mt-4 flex justify-center sm:justify-start gap-3">
+              {!isEditing ? (
+                <Button 
+                  onClick={() => setIsEditing(true)}
+                  className="bg-accent hover:bg-accent-dark text-white"
+                >
+                  Edit Profile
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    variant="secondary"
+                    onClick={() => {
+                      setIsEditing(false);
+                      // Reset form values
+                      setFirstName(profile?.first_name || "");
+                      setLastName(profile?.last_name || "");
+                      setAddress(profile?.address || "");
+                      setGender(profile?.gender || "");
+                      setAvatarUrl(profile?.avatar_url || null);
+                      setTtsEnabled(profile?.tts_enabled || false);
+                      setSttEnabled(profile?.stt_enabled || false);
+                      setAvatarFile(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveProfile}
+                    className="bg-accent hover:bg-accent-dark text-white"
+                    disabled={updating}
+                  >
+                    {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                    Save
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Status messages */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
+            <X className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mx-6 mt-4 p-3 bg-green-50 text-green-700 rounded-md flex items-start">
+            <Check className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <p>{success}</p>
+          </div>
+        )}
+        
+        {/* Profile Form */}
+        <form className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={!isEditing}
+                className={cn(
+                  "w-full p-2 border rounded-md",
+                  isEditing 
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                    : "bg-gray-50 border-gray-200"
+                )}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={!isEditing}
+                className={cn(
+                  "w-full p-2 border rounded-md",
+                  isEditing 
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                    : "bg-gray-50 border-gray-200"
+                )}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address
+              </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={!isEditing}
+                className={cn(
+                  "w-full p-2 border rounded-md",
+                  isEditing 
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                    : "bg-gray-50 border-gray-200"
+                )}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Gender
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                disabled={!isEditing}
+                className={cn(
+                  "w-full p-2 border rounded-md",
+                  isEditing 
+                    ? "border-gray-300 focus:ring-2 focus:ring-accent focus:border-transparent" 
+                    : "bg-gray-50 border-gray-200"
+                )}
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
             </div>
           </div>
           
-          {/* Main content area with flex for vertical stretching */}
-          <div className="p-4 pt-16 flex-1 flex flex-col overflow-hidden">
-            {/* Mobile name display and edit button */}
-            <div className="flex flex-col md:hidden items-center mb-3">
-              <h1 className="text-xl font-cal font-bold text-accent mb-0.5">
-                {profile?.first_name} {profile?.last_name}
-              </h1>
-              <p className="text-gray-500 flex items-center gap-1 text-xs mb-2">
-                <Mail className="h-3 w-3" />
-                {profile?.email}
-              </p>
-              
-              {!isEditing ? (
-                <Button 
-                  onClick={() => setIsEditing(true)}
-                  className="bg-accent hover:bg-accent/90 text-white w-full max-w-xs h-8 text-sm"
-                >
-                  Edit Profile
-                </Button>
-              ) : (
-                <div className="flex space-x-2 w-full max-w-xs">
-                  <Button 
-                    onClick={() => setIsEditing(false)}
-                    variant="outline"
-                    className="border-gray-300 flex-1 h-8 text-xs"
-                  >
-                    <X className="h-3 w-3 mr-1" /> Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveProfile}
-                    className="bg-accent hover:bg-accent/90 text-white flex-1 h-8 text-xs"
-                    disabled={updating}
-                  >
-                    {updating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            {/* Desktop section title and edit button */}
-            <div className="hidden md:flex justify-between items-center mb-4">
-              <h2 className="text-xl font-cal font-bold text-accent">Profile Information</h2>
-              {!isEditing ? (
-                <Button 
-                  onClick={() => setIsEditing(true)}
-                  className="bg-accent hover:bg-accent/90 text-white h-8 text-sm"
-                >
-                  Edit Profile
-                </Button>
-              ) : (
-                <div className="flex space-x-2">
-                  <Button 
-                    onClick={() => setIsEditing(false)}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-accent/10 h-8 text-sm"
-                  >
-                    <X className="h-3 w-3 mr-1" /> Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleSaveProfile}
-                    className="bg-accent hover:bg-accent/90 text-white h-8 text-sm"
-                    disabled={updating}
-                  >
-                    {updating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                    Save Changes
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            {/* Mobile section title */}
-            <h2 className="md:hidden text-lg font-cal font-bold text-accent mb-3">Profile Information</h2>
-            
-            {error && (
-              <div className="bg-red-50 text-red-600 p-2 rounded-lg mb-3 text-xs">
-                {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="bg-green-50 text-green-600 p-2 rounded-lg mb-3 text-xs">
-                {success}
-              </div>
-            )}
-            
-            {/* Main content with overflow handling */}
-            <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Profile details form */}
-              <div className="md:col-span-2 overflow-auto pr-2">
-                <form onSubmit={handleSaveProfile} className="space-y-3">
-                  {isEditing && (
-                    <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                      <label htmlFor="avatar-upload" className="flex items-center gap-2 cursor-pointer">
-                        <div className="bg-accent text-white p-1.5 rounded-md">
-                          <Camera className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-700 text-sm">Change Profile Picture</p>
-                          <p className="text-xs text-gray-500">Click to upload a new image</p>
-                        </div>
-                        <input 
-                          id="avatar-upload" 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={handleAvatarChange}
-                        />
-                      </label>
-                      {avatarFile && (
-                        <p className="mt-1 text-xs text-green-600 flex items-center">
-                          <Check className="h-3 w-3 mr-1" /> New image selected
-                        </p>
-                      )}
-                    </div>
+          {/* Accessibility settings */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Accessibility Settings</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  {ttsEnabled ? (
+                    <Volume2 className="h-5 w-5 text-accent mr-3" />
+                  ) : (
+                    <VolumeX className="h-5 w-5 text-gray-400 mr-3" />
                   )}
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label htmlFor="firstName" className="block text-xs font-medium text-accent mb-1">
-                        First Name
-                      </label>
-                      <input
-                        id="firstName"
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className={cn(
-                          "w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-accent",
-                          isEditing ? "border-gray-300" : "border-transparent bg-gray-50"
-                        )}
-                        disabled={!isEditing}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="lastName" className="block text-xs font-medium text-accent mb-1">
-                        Last Name
-                      </label>
-                      <input
-                        id="lastName"
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className={cn(
-                          "w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-accent",
-                          isEditing ? "border-gray-300" : "border-transparent bg-gray-50"
-                        )}
-                        disabled={!isEditing}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
                   <div>
-                    <label htmlFor="email" className="block text-xs font-medium text-accent mb-1">
-                      Email
-                    </label>
-                    <input
-                      id="email"
-                      type="email"
-                      value={profile?.email || ""}
-                      className="w-full p-1.5 text-sm border-transparent bg-gray-50 rounded-md"
-                      disabled
-                    />
-                    <p className="mt-0.5 text-xs text-gray-500">Email cannot be changed</p>
+                    <div className="font-medium">Text to Speech</div>
+                    <p className="text-sm text-gray-500">Enable voice responses from the assistant</p>
                   </div>
-                  
-                  <div>
-                    <label htmlFor="address" className="block text-xs font-medium text-accent mb-1">
-                      Address
-                    </label>
-                    <textarea
-                      id="address"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className={cn(
-                        "w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-accent",
-                        isEditing ? "border-gray-300" : "border-transparent bg-gray-50"
-                      )}
-                      disabled={!isEditing}
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="gender" className="block text-xs font-medium text-accent mb-1">
-                      Gender
-                    </label>
-                    <select
-                      id="gender"
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
-                      className={cn(
-                        "w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-accent",
-                        isEditing ? "border-gray-300" : "border-transparent bg-gray-50"
-                      )}
-                      disabled={!isEditing}
-                    >
-                      <option value="">Prefer not to say</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Text-to-Speech toggle */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-medium text-accent">Text-to-Speech</h4>
-                        <p className="text-xs text-gray-500">Enable voice responses using ElevenLabs</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleToggleTTS}
-                        disabled={!isEditing}
-                        className={cn(
-                          "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out",
-                          ttsEnabled ? "bg-accent" : "bg-gray-200",
-                          !isEditing && "opacity-60 cursor-not-allowed"
-                        )}
-                      >
-                        <span className="sr-only">Toggle text-to-speech</span>
-                        <span
-                          className={cn(
-                            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                            ttsEnabled ? "translate-x-4" : "translate-x-0.5"
-                          )}
-                          style={{ marginTop: "2px" }}
-                        />
-                      </button>
-                    </div>
-                    
-                    {ttsEnabled && isEditing && (
-                      <button
-                        type="button"
-                        onClick={testTTS}
-                        className="mt-2 text-xs text-accent flex items-center gap-1 hover:underline"
-                      >
-                        <Volume2 className="h-3 w-3" /> Test voice
-                      </button>
+                </div>
+                <div className="flex items-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="mr-2"
+                    onClick={testTTS}
+                    disabled={!ttsEnabled}
+                  >
+                    Test
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={handleToggleTTS}
+                    disabled={!isEditing}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
+                      ttsEnabled 
+                        ? "bg-accent" 
+                        : "bg-gray-200",
+                      !isEditing && "opacity-60 cursor-not-allowed"
                     )}
-                  </div>
-
-                  {/* Speech-to-Text toggle */}
-                  <div className="border-t border-gray-100 pt-3 mt-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-medium text-accent">Speech-to-Text</h4>
-                        <p className="text-xs text-gray-500">Enable voice input for messages</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleToggleSTT}
-                        disabled={!isEditing}
-                        className={cn(
-                          "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out",
-                          sttEnabled ? "bg-accent" : "bg-gray-200",
-                          !isEditing && "opacity-60 cursor-not-allowed"
-                        )}
-                      >
-                        <span className="sr-only">Toggle speech-to-text</span>
-                        <span
-                          className={cn(
-                            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                            sttEnabled ? "translate-x-4" : "translate-x-0.5"
-                          )}
-                          style={{ marginTop: "2px" }}
-                        />
-                      </button>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">
-                      Note: Speech recognition requires microphone access and is only available in supported browsers.
-                    </p>
-                  </div>
-                </form>
+                  >
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                        ttsEnabled ? "translate-x-6" : "translate-x-1"
+                      )}
+                    />
+                  </button>
+                </div>
               </div>
               
-              {/* Account information */}
-              <div className="bg-gray-50 p-3 rounded-lg h-fit hidden md:block">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Account Information</h3>
-                
-                <div className="space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Shield className="h-4 w-4 text-accent mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-gray-700">Account ID</p>
-                      <p className="text-xs text-gray-500 break-all">{profile?.id}</p>
-                    </div>
-                  </div>
-                  
-                  {createdAt && (
-                    <div className="flex items-start gap-2">
-                      <Calendar className="h-4 w-4 text-accent mt-0.5" />
-                      <div>
-                        <p className="text-xs font-medium text-gray-700">Member Since</p>
-                        <p className="text-xs text-gray-500">{createdAt}</p>
-                      </div>
-                    </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  {sttEnabled ? (
+                    <Mic className="h-5 w-5 text-accent mr-3" />
+                  ) : (
+                    <MicOff className="h-5 w-5 text-gray-400 mr-3" />
                   )}
-                  
-                  <div className="flex items-start gap-2">
-                    <User className="h-4 w-4 text-accent mt-0.5" />
-                    <div>
-                      <p className="text-xs font-medium text-gray-700">Profile Status</p>
-                      <div className="flex items-center mt-0.5">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                        <span className="text-xs text-gray-500">Active</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    {ttsEnabled ? (
-                      <Volume2 className="h-4 w-4 text-accent mt-0.5" />
-                    ) : (
-                      <VolumeX className="h-4 w-4 text-gray-400 mt-0.5" />
-                    )}
-                    <div>
-                      <p className="text-xs font-medium text-gray-700">Text-to-Speech</p>
-                      <p className="text-xs text-gray-500">
-                        {ttsEnabled ? "Enabled" : "Disabled"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    {sttEnabled ? (
-                      <Mic className="h-4 w-4 text-accent mt-0.5" />
-                    ) : (
-                      <MicOff className="h-4 w-4 text-gray-400 mt-0.5" />
-                    )}
-                    <div>
-                      <p className="text-xs font-medium text-gray-700">Speech-to-Text</p>
-                      <p className="text-xs text-gray-500">
-                        {sttEnabled ? "Enabled" : "Disabled"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-3 mt-3 border-t border-gray-100">
-                    <SignOutButton variant="default" className="w-full" />
+                  <div>
+                    <div className="font-medium">Speech to Text</div>
+                    <p className="text-sm text-gray-500">Speak to the assistant instead of typing</p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSTT}
+                  disabled={!isEditing}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
+                    sttEnabled 
+                      ? "bg-accent" 
+                      : "bg-gray-200",
+                    !isEditing && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                      sttEnabled ? "translate-x-6" : "translate-x-1"
+                    )}
+                  />
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-2">Development Tools</h3>
-        <div className="p-3 bg-yellow-50 text-sm text-yellow-800 rounded-md mb-3">
-          Warning: These tools are for development use only and should be removed in production.
-        </div>
+        </form>
         
-        <button
-          onClick={async () => {
-            try {
-              // Get the current user
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) return;
-              
-              // Update the user's role to admin
-              const { error } = await supabase
-                .from('profiles')
-                .update({ role: 'admin' })
-                .eq('id', session.user.id);
-                
-              if (error) {
-                console.error('Error making user admin:', error);
-                alert('Error making user admin: ' + error.message);
-              } else {
-                alert('Success! You are now an admin. Please log out and log back in.');
-              }
-            } catch (error) {
-              console.error('Error:', error);
-              alert('Unexpected error');
-            }
-          }}
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md text-sm"
-        >
-          Make Me Admin (Debug Only)
-        </button>
+        {/* Sign Out Section */}
+        <div className="p-6 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Shield className="h-5 w-5 text-gray-400 mr-3" />
+              <div>
+                <div className="font-medium">Account Security</div>
+                <p className="text-sm text-gray-500">Sign out from your account</p>
+              </div>
+            </div>
+            <SignOutButton />
+          </div>
+        </div>
       </div>
     </div>
   );

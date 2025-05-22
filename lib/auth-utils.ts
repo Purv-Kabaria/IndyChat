@@ -1,5 +1,6 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Session } from '@supabase/supabase-js';
+import { auth, db } from './firebase';
+import { doc, getDoc, updateDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 
 export type UserRole = 'user' | 'admin';
 
@@ -16,56 +17,44 @@ export type UserProfile = {
   last_sign_in_at: string | null;
 };
 
-export async function getUserRole(session?: Session | null): Promise<UserRole | null> {
-  const supabase = createClientComponentClient();
-  
+export async function getUserRole(user?: User | null): Promise<UserRole | null> {
   try {
-    if (!session) {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession?.user) return null;
-      session = currentSession;
+    if (!user) {
+      user = auth.currentUser;
+      if (!user) return null;
     }
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
     
-    if (error || !data) {
-      console.error('Error fetching user role:', error);
+    if (!userDoc.exists()) {
+      console.error('User document not found');
       return null;
     }
     
-    return data.role as UserRole;
+    return userDoc.data().role as UserRole;
   } catch (error) {
     console.error('Unexpected error getting user role:', error);
     return null;
   }
 }
 
-export async function isAdmin(session?: Session | null): Promise<boolean> {
-  const supabase = createClientComponentClient();
-  
+export async function isAdmin(user?: User | null): Promise<boolean> {
   try {
-    if (!session) {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession?.user) return false;
-      session = currentSession;
+    if (!user) {
+      user = auth.currentUser;
+      if (!user) return false;
     }
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
     
-    if (error) {
-      console.error('Error checking admin status:', error);
+    if (!userDoc.exists()) {
+      console.error('User document not found');
       return false;
     }
     
-    return data?.role === 'admin';
+    return userDoc.data().role === 'admin';
   } catch (error) {
     console.error('Unexpected error checking admin status:', error);
     return false;
@@ -73,24 +62,19 @@ export async function isAdmin(session?: Session | null): Promise<boolean> {
 }
 
 export async function updateUserRole(userId: string, role: UserRole): Promise<boolean> {
-  const supabase = createClientComponentClient();
-  
   try {
-    const currentUserRole = await getUserRole();
-    if (currentUserRole !== 'admin') {
+    // Check if current user is admin
+    const isCurrentUserAdmin = await isAdmin();
+    if (!isCurrentUserAdmin) {
       console.error('Only admins can update user roles');
       return false;
     }
     
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('Error updating user role:', error);
-      return false;
-    }
+    const userDocRef = doc(db, 'users', userId);
+    await updateDoc(userDocRef, { 
+      role, 
+      updated_at: new Date().toISOString() 
+    });
     
     return true;
   } catch (error) {
@@ -100,28 +84,36 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<bo
 }
 
 export async function getAllUsers(): Promise<UserProfile[] | null> {
-  const supabase = createClientComponentClient();
-  
   try {
-    const currentUserRole = await getUserRole();
-    if (currentUserRole !== 'admin') {
+    // Check if current user is admin
+    const isCurrentUserAdmin = await isAdmin();
+    if (!isCurrentUserAdmin) {
       console.error('Only admins can retrieve all users');
       return null;
     }
     
-    // Get users directly from the profiles table - we've updated the profile page
-    // to ensure that user data is saved to both auth metadata and the profiles table
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const usersCollection = collection(db, 'users');
+    const q = query(usersCollection, orderBy('created_at', 'desc'));
+    const querySnapshot = await getDocs(q);
     
-    if (error) {
-      console.error('Error fetching all users:', error);
-      return null;
-    }
+    const users: UserProfile[] = [];
+    querySnapshot.forEach((doc) => {
+      const userData = doc.data();
+      users.push({
+        id: doc.id,
+        email: userData.email || '',
+        first_name: userData.first_name || null,
+        last_name: userData.last_name || null,
+        avatar_url: userData.avatar_url || null,
+        address: userData.address || null,
+        role: userData.role || 'user',
+        created_at: userData.created_at || '',
+        updated_at: userData.updated_at || '',
+        last_sign_in_at: userData.last_sign_in_at || null
+      });
+    });
     
-    return data as UserProfile[];
+    return users;
   } catch (error) {
     console.error('Unexpected error fetching all users:', error);
     return null;

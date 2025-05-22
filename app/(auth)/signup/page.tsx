@@ -3,29 +3,14 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { Loader2, Home } from "lucide-react";
 import Image from "next/image";
+import { createUser, signInWithGoogle, auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 type AuthError = {
   message: string;
-  status?: number;
-  name?: string;
-};
-
-type UserSession = {
-  user: {
-    email: string;
-    email_confirmed_at?: string;
-    confirmation_sent_at?: string;
-  } | null;
-  session: {
-    user: {
-      id: string;
-      email?: string;
-      email_confirmed_at?: string;
-    };
-  } | null;
+  code?: string;
 };
 
 function SignupPageContent() {
@@ -37,97 +22,40 @@ function SignupPageContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [envStatus, setEnvStatus] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [currentSession, setCurrentSession] = useState<UserSession | null>(
-    null
-  );
 
-  // Verify environment variables and Supabase client on component mount
-  // Also check session status to handle already authenticated users
+  // Check if user is already authenticated
   useEffect(() => {
-    const checkSupabaseConfig = async () => {
-      // Check if Supabase environment variables are set
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        setEnvStatus("Warning: Supabase environment variables are missing");
-        setSessionChecked(true);
-        return;
-      }
-
+    const checkAuthStatus = async () => {
       // Check for forceRedirect parameter
       const urlParams = new URLSearchParams(window.location.search);
       const forceRedirect = urlParams.get("forceRedirect");
 
       try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("Supabase session retrieval error:", error);
-          setEnvStatus("Error retrieving session");
-        } else {
-          // Store the session for use in rendering
-          setCurrentSession(
-            data.session
-              ? {
-                  user: {
-                    email: data.session.user.email || "",
-                    email_confirmed_at: data.session.user.email_confirmed_at,
-                  },
-                  session: data.session,
-                }
-              : null
-          );
-
-          if (data.session && forceRedirect !== "false") {
-            const isOAuthProvider =
-              data.session.user.app_metadata?.provider === "google";
-
-            if (isOAuthProvider) {
-              router.push("/chat");
-              return;
-            }
-
-            if (
-              data.session.user.email &&
-              !data.session.user.email_confirmed_at
-            ) {
-              router.push(
-                `/verify?email=${encodeURIComponent(data.session.user.email)}`
-              );
-              return;
-            }
-
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          if (user && forceRedirect !== "false") {
+            // User is already signed in, redirect to chat
             router.push("/chat");
             return;
           }
-        }
+          
+          setSessionChecked(true);
+        });
+
+        return () => unsubscribe();
       } catch (err) {
         console.error("Unexpected error during session check:", err);
-        setEnvStatus("Unexpected error checking session");
-      } finally {
         setSessionChecked(true);
       }
     };
 
-    checkSupabaseConfig();
+    checkAuthStatus();
   }, [router]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Supabase environment variables are missing");
-      setError("Configuration error. Please contact support.");
-      setLoading(false);
-      return;
-    }
 
     // Validation
     if (password !== confirmPassword) {
@@ -143,90 +71,32 @@ function SignupPageContent() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
+      // Create user with Firebase Auth and Firestore profile
+      await createUser(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        role: "user", // Default role is "user", not admin
       });
 
-      if (error) throw error;
-
-      // Create a profile with 'user' role by default
-      if (data.user) {
-        const { error: profileError } = await supabase.from("profiles").upsert(
-          {
-            id: data.user.id,
-            email: email,
-            first_name: firstName,
-            last_name: lastName,
-            avatar_url: null,
-            role: "user", // Default role is "user", not admin
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "id",
-          }
-        );
-
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-        }
-      }
-
-      if (data?.user?.email_confirmed_at) {
-        setTimeout(() => {
-          router.push("/chat");
-        }, 2000);
-        return;
-      }
-
-      setTimeout(() => {
-        router.push(
-          `/verify?email=${encodeURIComponent(email)}&redirectTo=/chat`
-        );
-      }, 2000);
+      // Redirect to chat page after successful signup
+      router.push("/chat");
     } catch (error: unknown) {
       console.error("Signup error:", error);
 
       // Enhanced error reporting
-      let errorMessage = "An error occurred during signup";
-
       const authError = error as AuthError;
-
-      if (authError.message) {
-        errorMessage = authError.message;
+      
+      if (authError.code === 'auth/email-already-in-use') {
+        setError("This email is already registered. Please try logging in instead.");
+      } else if (authError.code === 'auth/invalid-email') {
+        setError("Invalid email format. Please check your email and try again.");
+      } else if (authError.code === 'auth/weak-password') {
+        setError("Password is too weak. Please choose a stronger password.");
+      } else if (authError.code === 'auth/network-request-failed') {
+        setError("Network error. Please check your internet connection and try again.");
+      } else {
+        setError(authError.message || "An error occurred during signup");
       }
-
-      if (authError.status) {
-        errorMessage += ` (Status: ${authError.status})`;
-      }
-
-      // Check for specific error types and provide more helpful messages
-      if (errorMessage.includes("already registered")) {
-        errorMessage =
-          "This email is already registered. Please try logging in instead.";
-
-        // Offer option to navigate to login
-        setTimeout(() => {
-          router.push("/login");
-        }, 5000);
-      } else if (errorMessage.includes("network")) {
-        errorMessage =
-          "Network error. Please check your internet connection and try again.";
-      } else if (errorMessage.includes("email verification")) {
-        errorMessage =
-          "There was an issue sending the verification email. Please try again or contact support.";
-      } else if (errorMessage.includes("rate limit")) {
-        errorMessage = "Too many signup attempts. Please try again later.";
-      }
-
-      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -237,23 +107,8 @@ function SignupPageContent() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${
-            typeof window !== "undefined"
-              ? window.location.origin
-              : process.env.NEXT_PUBLIC_SITE_URL || ""
-          }/api/auth/callback`,
-          queryParams: {
-            prompt: "select_account",
-            access_type: "offline",
-          },
-        },
-      });
-
-      if (error) throw error;
-
+      await signInWithGoogle();
+      // Redirect will be handled by the auth state listener
     } catch (error: unknown) {
       console.error("Google sign in error:", error);
       const authError = error as AuthError;
@@ -275,38 +130,15 @@ function SignupPageContent() {
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
-      {/* Back to Home button */}
-      <Link
-        href="/"
-        className="absolute top-4 left-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white py-2 px-3 rounded-lg text-sm">
+      <Link href="/" className="absolute top-4 left-4 flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors text-white py-2 px-3 rounded-lg text-sm">
         <Home className="h-4 w-4" />
         <span>Back to Home</span>
       </Link>
-
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-cal font-bold text-accent">IndyChat</h1>
-          <p className="text-sm text-gray-500 mt-2">Create your account</p>
+          <p className="text-sm text-gray-500 mt-2">Create a new account</p>
         </div>
-
-        {envStatus && (
-          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg mb-4 text-sm">
-            <strong>Debug:</strong> {envStatus}
-          </div>
-        )}
-
-        {/* Add a hint for logged-in users */}
-        {sessionChecked && currentSession && (
-          <div className="bg-blue-50 text-blue-700 p-3 rounded-lg mb-4 text-sm">
-            <strong>Note:</strong> You are currently logged in. If you want to
-            create another account,
-            <Link
-              href="/signup?forceRedirect=false"
-              className="ml-1 underline font-medium">
-              click here
-            </Link>
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
@@ -317,9 +149,7 @@ function SignupPageContent() {
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label
-                htmlFor="firstName"
-                className="block text-sm font-medium text-accent mb-1">
+              <label htmlFor="firstName" className="block text-sm font-medium text-accent mb-1">
                 First Name
               </label>
               <input
@@ -332,9 +162,7 @@ function SignupPageContent() {
               />
             </div>
             <div>
-              <label
-                htmlFor="lastName"
-                className="block text-sm font-medium text-accent mb-1">
+              <label htmlFor="lastName" className="block text-sm font-medium text-accent mb-1">
                 Last Name
               </label>
               <input
@@ -349,9 +177,7 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-accent mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-accent mb-1">
               Email
             </label>
             <input
@@ -365,9 +191,7 @@ function SignupPageContent() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-accent mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-accent mb-1">
               Password
             </label>
             <input
@@ -377,13 +201,12 @@ function SignupPageContent() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               required
+              minLength={6}
             />
           </div>
 
           <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-accent mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-accent mb-1">
               Confirm Password
             </label>
             <input
@@ -393,13 +216,15 @@ function SignupPageContent() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               required
+              minLength={6}
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center">
+            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center"
+          >
             {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
             Sign Up
           </button>
@@ -411,31 +236,23 @@ function SignupPageContent() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">
-                Or continue with
-              </span>
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
             </div>
           </div>
 
           <button
             onClick={handleGoogleSignup}
             disabled={loading}
-            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors">
-            <Image
-              src="/images/google.svg"
-              alt="Google"
-              width={20}
-              height={20}
-            />
+            className="mt-4 w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-md p-2 text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Image src="/images/google.svg" alt="Google" width={20} height={20} />
             Google
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{" "}
-          <Link
-            href="/login"
-            className="text-accent hover:underline font-medium">
+          <Link href="/login" className="text-accent hover:underline font-medium">
             Sign in
           </Link>
         </p>

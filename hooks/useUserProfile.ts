@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { auth, getUserProfile } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export type UserProfile = {
   id: string;
@@ -12,51 +13,37 @@ export type UserProfile = {
   tts_enabled?: boolean;
   stt_enabled?: boolean;
   voice_id?: string;
+  role?: string;
 };
 
 export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = async (userId: string) => {
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) throw sessionError;
-        
-        if (!session) {
+        const userData = await getUserProfile(userId);
+
+        if (!userData) {
           setProfile(null);
           return;
         }
-        
-        // Get user data from auth.users
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) throw userError;
-        
-        if (!userData.user) {
-          setProfile(null);
-          return;
-        }
-        
-        const user = userData.user;
-        
+
         // Set profile data
         const userProfile: UserProfile = {
-          id: user.id,
-          email: user.email || "",
-          first_name: user.user_metadata?.first_name || "",
-          last_name: user.user_metadata?.last_name || "",
-          avatar_url: user.user_metadata?.avatar_url || null,
-          address: user.user_metadata?.address || null,
-          gender: user.user_metadata?.gender || null,
-          tts_enabled: user.user_metadata?.tts_enabled || false,
-          stt_enabled: user.user_metadata?.stt_enabled || false,
-          voice_id: user.user_metadata?.voice_id || undefined,
+          id: userId,
+          email: userData.email || "",
+          first_name: userData.first_name || "",
+          last_name: userData.last_name || "",
+          avatar_url: userData.avatar_url || null,
+          address: userData.address || null,
+          gender: userData.gender || null,
+          tts_enabled: userData.tts_enabled || false,
+          stt_enabled: userData.stt_enabled || false,
+          voice_id: userData.voice_id || undefined,
+          role: userData.role || "user",
         };
         
         setProfile(userProfile);
@@ -68,23 +55,20 @@ export function useUserProfile() {
       }
     };
     
-    fetchUserProfile();
-    
     // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) {
-          fetchUserProfile();
-        } else {
-          setProfile(null);
-        }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        fetchUserProfile(user.uid);
+      } else {
+        setProfile(null);
+        setLoading(false);
       }
-    );
+    });
     
     return () => {
-      authListener.subscription.unsubscribe();
+      unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   return { profile, loading, error };
 } 

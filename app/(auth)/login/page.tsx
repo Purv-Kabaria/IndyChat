@@ -5,13 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Home } from "lucide-react";
 import Image from "next/image";
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { signIn, signInWithGoogle, getUserProfile } from '@/lib/firebase';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
-  const supabase = createClientComponentClient();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,9 +18,10 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(message);
 
-type AuthError = {
-  message: string;
-};
+  type AuthError = {
+    message: string;
+    code?: string;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,73 +30,41 @@ type AuthError = {
     setSuccess(null);
 
     try {
-      const { data: loginData, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        // Check if this is an email verification error
-        if (error.message.includes("Email not confirmed")) {
-          router.push(`/verify?email=${encodeURIComponent(email)}`);
-          return;
-        }
-        throw error;
+      // Sign in with Firebase
+      const userCredential = await signIn(email, password);
+      
+      // Get user profile from Firestore
+      const profile = await getUserProfile(userCredential.user.uid);
+      
+      if (!profile) {
+        // User doesn't have a profile yet, redirect to chat
+        router.push("/chat");
+        return;
       }
-
-      // Ensure the user has a profile in the profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', loginData.user?.id)
-        .single();
-
-      if (profileError && profileError.code === 'PGRST116') {
-        // First check if this user has admin privileges in auth metadata
-        const { data: userRoleData } = await supabase.auth.getUser();
-        
-        // Determine if the user should have admin role from metadata or previous setup
-        const shouldBeAdmin = userRoleData?.user?.app_metadata?.role === 'admin';
-        
-        // Profile doesn't exist yet, create it with appropriate role
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: loginData.user?.id,
-            email: loginData.user?.email,
-            first_name: loginData.user?.user_metadata?.first_name || '',
-            last_name: loginData.user?.user_metadata?.last_name || '',
-            avatar_url: loginData.user?.user_metadata?.avatar_url || null,
-            role: shouldBeAdmin ? 'admin' : 'user'
-          });
-
-        if (insertError) {
-          console.error('Failed to create profile:', insertError);
-        }
-        
-        // If user should be admin, redirect to admin page
-        if (shouldBeAdmin) {
-          router.push("/admin");
-          return;
-        }
-      } else if (profileData) {
-        // Profile exists, update last sign-in timestamp
-        await supabase
-          .from('profiles')
-          .update({ last_sign_in_at: new Date().toISOString() })
-          .eq('id', loginData.user?.id);
-        
-        // Redirect based on role
-        if (profileData.role === 'admin') {
-          router.push("/admin");
-          return;
-        }
+      
+      // Redirect based on role
+      if (profile.role === 'admin') {
+        router.push("/admin");
+        return;
       }
-
+      
       // Default redirect to chat
       router.push("/chat");
     } catch (error: unknown) {
-      setError((error as AuthError).message || "An error occurred during login");
+      const authError = error as AuthError;
+      
+      // Handle specific Firebase auth errors
+      if (authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password') {
+        setError('Invalid email or password');
+      } else if (authError.code === 'auth/invalid-email') {
+        setError('Invalid email format');
+      } else if (authError.code === 'auth/too-many-requests') {
+        setError('Too many unsuccessful login attempts. Please try again later.');
+      } else if (authError.code === 'auth/user-disabled') {
+        setError('This account has been disabled. Please contact support.');
+      } else {
+        setError(authError.message || "An error occurred during login");
+      }
     } finally {
       setLoading(false);
     }
@@ -107,16 +75,11 @@ type AuthError = {
     setError(null);
     
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL || ''}/api/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
+      await signInWithGoogle();
+      // Redirect will be handled in the auth state change listener
     } catch (error: unknown) {
-      setError((error as AuthError).message || "An error occurred with Google sign in");
+      const authError = error as AuthError;
+      setError(authError.message || "An error occurred with Google sign in");
       setLoading(false);
     }
   };

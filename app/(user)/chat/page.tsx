@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import { Suspense, useEffect } from 'react';
 import { Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const ChatComponent = dynamic(
   () => import('@/components/chat/ChatComponent'),
@@ -20,20 +21,17 @@ const ChatComponent = dynamic(
 
 function ChatPageContent() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error || !session) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
         router.push('/login?message=Please log in to access chat');
         return;
       }
-    };
+    });
 
-    checkAuth();
-  }, [router, supabase.auth]);
+    return () => unsubscribe();
+  }, [router]);
 
   return (
     <div className="min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden">

@@ -1,119 +1,91 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { adminAuth, adminDb } from '../firebase-admin';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
+  const idToken = requestUrl.searchParams.get("token");
   // Default redirect target
   let redirectTarget = "/chat";
 
-  if (!code) {
+  if (!idToken) {
     return NextResponse.redirect(
-      `${requestUrl.origin}/login?error=No authorization code found`
+      `${requestUrl.origin}/login?error=No authentication token found`
     );
   }
 
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (error) {
-      console.error("Error exchanging code for session:", error);
-      return NextResponse.redirect(
-        `${requestUrl.origin}/login?error=${encodeURIComponent(error.message)}`
-      );
+    // Verify the Firebase ID token
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+    
+    // Extract first/last name if available
+    let firstName = '';
+    let lastName = '';
+    
+    if (name) {
+      const nameParts = name.split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
     }
-
-    if (data?.session?.user) {
-      const { user } = data.session;
-
-      let firstName = user.user_metadata?.first_name;
-      let lastName = user.user_metadata?.last_name;
-      let avatarUrl = user.user_metadata?.avatar_url;
-
-      if (
-        (!firstName || !lastName) &&
-        user.app_metadata?.provider === "google"
-      ) {
-        const rawUserData = user.user_metadata?.raw_user_meta_data || {};
-        const googleName = rawUserData.name || "";
-
-        if (googleName && !firstName && !lastName) {
-          const nameParts = googleName.split(" ");
-          firstName = nameParts[0] || "";
-          lastName = nameParts.slice(1).join(" ") || "";
-        }
-
-        if (!avatarUrl && rawUserData.picture) {
-          avatarUrl = rawUserData.picture;
-        }
-      }
-
-      if (firstName || lastName || avatarUrl) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: {
-            first_name: firstName || "",
-            last_name: lastName || "",
-            avatar_url: avatarUrl || null,
-          },
-        });
-
-        if (updateError) {
-          console.error("Error updating user metadata:", updateError);
-        }
-      }
-
-      // Check for existing profile to preserve role if it exists
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      // Determine if user should have admin role
-      // Check app_metadata first, then existing profile, default to 'user' if neither exists
-      const userRole = user.app_metadata?.role === 'admin' ? 'admin' : 
-                      (existingProfile?.role === 'admin' ? 'admin' : 'user');
+    
+    // Set session cookie
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+    
+    // Check for existing user profile
+    const userRef = adminDb.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      // Create user profile if it doesn't exist
+      await userRef.set({
+        id: uid,
+        email: email || '',
+        first_name: firstName,
+        last_name: lastName,
+        avatar_url: picture || null,
+        role: 'user', // Default role
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } else {
+      // Update last sign in
+      await userRef.update({
+        updated_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString()
+      });
       
-      const { error: profileError } = await supabase.from("profiles").upsert(
-        {
-          id: user.id,
-          email: user.email || "",
-          first_name: firstName || "",
-          last_name: lastName || "",
-          avatar_url: avatarUrl || null,
-          role: userRole,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id",
-        }
-      );
-
-      if (profileError) {
-        console.error("Error creating/updating profile:", profileError);
-      }
-
-      // Set appropriate redirect based on role
-      if (userRole === 'admin') {
-        redirectTarget = "/chat";
+      // Check if user is admin to set redirect
+      const userData = userDoc.data();
+      if (userData?.role === 'admin') {
+        redirectTarget = '/admin';
       }
     }
-
+    
     // Override with URL parameter if provided
     const redirectParam = requestUrl.searchParams.get("redirectTo");
     if (redirectParam) {
       redirectTarget = redirectParam;
     }
     
-    return NextResponse.redirect(`${requestUrl.origin}${redirectTarget}`);
+    // Create response with auth cookie
+    const response = NextResponse.redirect(`${requestUrl.origin}${redirectTarget}`);
+    
+    // Set the cookie
+    response.cookies.set({
+      name: 'firebase-auth-token',
+      value: sessionCookie,
+      maxAge: expiresIn,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/'
+    });
+    
+    return response;
   } catch (error) {
-    console.error("Unexpected error in OAuth callback:", error);
+    console.error("Error in OAuth callback:", error);
     return NextResponse.redirect(
-      `${requestUrl.origin}/login?error=Unexpected error in authentication`
+      `${requestUrl.origin}/login?error=Authentication error`
     );
   }
 }

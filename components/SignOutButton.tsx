@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Loader2, LogOut } from "lucide-react";
+import { auth, logOut } from "@/lib/firebase";
 
 type SignOutButtonProps = {
   variant?: "default" | "minimal" | "icon";
@@ -19,19 +19,14 @@ export default function SignOutButton({
   onSignOut,
 }: SignOutButtonProps) {
   const router = useRouter();
-  const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(false);
 
   const handleSignOut = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error("Error signing out:", error);
-        throw error;
-      }
-
+      // Sign out using Firebase
+      await logOut();
+      
       if (onSignOut) {
         await onSignOut();
       }

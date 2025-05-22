@@ -24,13 +24,14 @@ import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
 import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
-import { UserRole } from '@/lib/auth-utils';
+import { auth, updateUserProfile } from '@/lib/firebase';
 import ChatSidebar from "./ChatSidebar";
 import { ComplaintMessage } from "./ComplaintMessage";
 import { ComplaintType } from "@/lib/complaints";
+import { onAuthStateChanged } from "firebase/auth";
+import { UserRole } from '@/lib/auth-utils';
 
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -161,7 +162,6 @@ export default function ChatComponent() {
   const hasInitializedRef = useRef(false);
   const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
-  const supabase = createClientComponentClient();
   const { profile } = useUserProfile();
 
   const [userRole, setUserRole] = useState<UserRole | 'guest' | null>(null);
@@ -464,33 +464,25 @@ export default function ChatComponent() {
   useEffect(() => {
     const checkUserRole = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          setUserRole('guest');
-          return;
-        }
-        
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        // Use Firebase authentication state
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            setUserRole('guest');
+            return;
+          }
           
-        if (error) {
-          console.error('Error fetching user role:', error);
-          setUserRole('user');
-          return;
-        }
+          // Use the role from the profile
+          setUserRole((profile?.role as UserRole) || 'user');
+        });
         
-        setUserRole(data.role as UserRole);
+        return () => unsubscribe();
       } catch (error) {
         console.error('Error checking user role:', error);
       }
     };
 
     checkUserRole();
-  }, [supabase]);
+  }, [profile]);
 
   // Function to detect complaint-related queries
   const detectComplaintIntent = (message: string): ComplaintType | null => {
@@ -801,12 +793,12 @@ export default function ChatComponent() {
                     type="button"
                     onClick={async () => {
                       try {
-                        const newTtsEnabled = !profile.tts_enabled;
-                        await supabase.auth.updateUser({
-                          data: {
+                        if (profile.id) {
+                          const newTtsEnabled = !profile.tts_enabled;
+                          await updateUserProfile(profile.id, {
                             tts_enabled: newTtsEnabled,
-                          },
-                        });
+                          });
+                        }
                       } catch (error) {
                         console.error("Error updating TTS setting:", error);
                       }
@@ -833,12 +825,12 @@ export default function ChatComponent() {
                     type="button"
                     onClick={async () => {
                       try {
-                        const newSttEnabled = !profile.stt_enabled;
-                        await supabase.auth.updateUser({
-                          data: {
+                        if (profile.id) {
+                          const newSttEnabled = !profile.stt_enabled;
+                          await updateUserProfile(profile.id, {
                             stt_enabled: newSttEnabled,
-                          },
-                        });
+                          });
+                        }
                       } catch (error) {
                         console.error("Error updating STT setting:", error);
                       }

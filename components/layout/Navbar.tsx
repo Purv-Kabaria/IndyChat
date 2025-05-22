@@ -5,12 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, logOut } from '@/lib/firebase';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const supabase = createClientComponentClient();
   
   useEffect(() => {
     if (isMenuOpen) {
@@ -26,20 +26,13 @@ const Navbar = () => {
   
   // Check authentication status
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsLoggedIn(!!session);
-    };
-    
-    checkAuthStatus();
-    
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoggedIn(!!user);
     });
     
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
+    // Clean up subscription
+    return () => unsubscribe();
+  }, []);
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

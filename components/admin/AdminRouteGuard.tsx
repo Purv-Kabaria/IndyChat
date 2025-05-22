@@ -3,7 +3,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { auth, checkUserIsAdmin } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 interface AdminRouteGuardProps {
   children: ReactNode;
@@ -20,7 +21,6 @@ export default function AdminRouteGuard({
   ),
 }: AdminRouteGuardProps) {
   const router = useRouter();
-  const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{
@@ -33,83 +33,45 @@ export default function AdminRouteGuard({
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          router.push(
-            "/login?message=You must be logged in to access admin features"
-          );
-          return;
-        }
-
-        try {
-          const { data: isAdminData, error: isAdminError } = await supabase.rpc(
-            "is_user_admin",
-            { user_id: session.user.id }
-          );
-
-          if (!isAdminError && isAdminData === true) {
-            setAuthorized(true);
-            setLoading(false);
-            return;
-          }
-
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", session.user.id)
-            .single();
-
-          if (error) {
-            console.error("Error fetching user role:", error);
-            setDebugInfo({
-              type: "fetch_error",
-              error,
-              userId: session.user.id,
-            });
-
-            setLoading(false);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (!user) {
             router.push(
-              "/chat?message=You do not have permission to access this area"
+              "/login?message=You must be logged in to access admin features"
             );
             return;
           }
 
-          setDebugInfo({ type: "profile_data", data });
+          try {
+            // Check if user is admin by querying their Firestore profile
+            const isAdmin = await checkUserIsAdmin(user.uid);
 
-          if (!data) {
+            if (isAdmin) {
+              setAuthorized(true);
+            } else {
+              router.push(
+                "/chat?message=You do not have permission to access this area"
+              );
+            }
+          } catch (error) {
+            console.error("Exception during profile check:", error);
+            setDebugInfo({ type: "check_exception", error });
+            router.push("/chat?message=Error checking permissions");
+          } finally {
             setLoading(false);
-            router.push(
-              "/chat?message=You do not have permission to access this area"
-            );
-            return;
           }
+        });
 
-          if (data.role === "admin") {
-            setAuthorized(true);
-          } else {
-            router.push(
-              "/chat?message=You do not have permission to access this area"
-            );
-          }
-        } catch (error) {
-          console.error("Exception during profile check:", error);
-          setDebugInfo({ type: "check_exception", error });
-          router.push("/chat?message=Error checking permissions");
-        }
+        return () => unsubscribe();
       } catch (error) {
         console.error("Error checking admin status:", error);
         setDebugInfo({ type: "general_error", error });
         router.push("/login?message=Authentication error");
-      } finally {
         setLoading(false);
       }
     };
 
     checkAdminStatus();
-  }, [router, supabase]);
+  }, [router]);
 
   if (loading) {
     return fallback;
@@ -127,7 +89,7 @@ export default function AdminRouteGuard({
               Error occurred checking admin permissions
             </p>
             <p className="text-sm mt-2">
-              This is likely an issue with the profiles table or RLS policies.
+              This is likely an issue with the Firestore database or security rules.
             </p>
           </div>
 

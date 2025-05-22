@@ -1,5 +1,6 @@
 import './globals.css';
 import PageTransition from '../components/layout/PageTransition';
+import { AuthProvider } from '@/lib/auth-context';
 
 // This must remain a server component
 export const metadata = {
@@ -18,9 +19,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-mont">
-        <PageTransition>
-          {children}
-        </PageTransition>
+        <AuthProvider>
+          <PageTransition>
+            {children}
+          </PageTransition>
+        </AuthProvider>
       </body>
     </html>
   )
