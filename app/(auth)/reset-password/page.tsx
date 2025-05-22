@@ -2,10 +2,12 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import { sendPasswordReset } from "@/lib/firebase";
+import { AuthError } from "firebase/auth";
 
-type AuthError = {
+type FirebaseError = {
+  code?: string;
   message: string;
 };
 
@@ -21,16 +23,42 @@ function ResetPasswordPageContent() {
     setError(null);
     setMessage(null);
 
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
-      });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      setLoading(false);
+      return;
+    }
 
-      if (error) throw error;
-      
+    try {
+      const result = await sendPasswordReset(email);
+
+      if (result.error) {
+        throw result.error;
+      }
+
       setMessage("Check your email for a password reset link");
     } catch (error: unknown) {
-      setError((error as AuthError).message || "An error occurred");
+      const authError = error as FirebaseError;
+
+      let errorMessage =
+        "An error occurred while sending the password reset email";
+
+      if (authError.code === "auth/user-not-found") {
+        setMessage(
+          "If this email is registered, you'll receive a password reset link"
+        );
+      } else if (authError.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address";
+      } else if (authError.code === "auth/too-many-requests") {
+        errorMessage = "Too many requests. Please try again later.";
+      } else {
+        console.error("Password reset error:", authError);
+      }
+
+      if (authError.code !== "auth/user-not-found") {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,8 +68,12 @@ function ResetPasswordPageContent() {
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-cal font-bold text-accent">Reset Password</h1>
-          <p className="text-sm text-gray-500 mt-2">Enter your email to receive a reset link</p>
+          <h1 className="text-3xl font-cal font-bold text-accent">
+            Reset Password
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            Enter your email to receive a reset link
+          </p>
         </div>
 
         {error && (
@@ -58,7 +90,9 @@ function ResetPasswordPageContent() {
 
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-accent mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-accent mb-1">
               Email
             </label>
             <input
@@ -68,21 +102,26 @@ function ResetPasswordPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               required
+              aria-describedby="email-description"
             />
+            <p id="email-description" className="mt-1 text-xs text-gray-500">
+              Enter the email address associated with your account
+            </p>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center"
-          >
+            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center">
             {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
             Send Reset Link
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          <Link href="/login" className="text-accent hover:underline font-medium">
+          <Link
+            href="/login"
+            className="text-accent hover:underline font-medium">
             Back to login
           </Link>
         </p>
@@ -91,13 +130,14 @@ function ResetPasswordPageContent() {
   );
 }
 
-// Loading fallback component
 function ResetPasswordPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="flex flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
-        <p className="mt-2 text-sm text-gray-500">Loading reset password page...</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Loading reset password page...
+        </p>
       </div>
     </div>
   );
@@ -109,4 +149,4 @@ export default function ResetPasswordPage() {
       <ResetPasswordPageContent />
     </Suspense>
   );
-} 
+}

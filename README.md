@@ -1,45 +1,129 @@
-Project Title:
-Indianapolis Digital Assistant for Civic Engagement and City Services
+# IndyChat - Indianapolis Digital Assistant
 
-Overview:
-This project is a city-specific AI chatbot platform designed to assist residents, workers, and visitors of Indianapolis, Indiana. The assistant provides timely, accurate, and helpful information regarding local government services, transit, events, housing, education, public safety, and more. It is intended to serve as a digital bridge between the public and the city’s extensive network of services, making city-related information and tasks more accessible and understandable.
+A secure, scalable AI chatbot platform designed to assist residents, workers, and visitors of Indianapolis, Indiana with city services, transit information, events, and more.
 
-Platform Details:
+## Overview
 
-- Web Frontend: Built using Next.js, optimized for performance and SEO, designed for easy access via desktops and tablets.
-- Mobile Application: Developed using React Native, ensuring cross-platform compatibility on iOS and Android for on-the-go support.
-- AI Backend: Powered by Dify AI, which handles natural language understanding, response generation, and prompt orchestration using a highly customized prompt engineered for locality-specific queries and structured civic guidance.
+This project provides a digital bridge between the public and the city's extensive network of services, making city-related information and tasks more accessible and understandable.
 
-Key Features:
+## Features
 
-1. Local Government Services:
-   Responds accurately to questions about permits, licenses, elections, ordinances, trash pickup, and more.
+- Local Government Services: Information about permits, licenses, elections, ordinances, trash pickup
+- Transportation Support: Real-time route guidance, IndyGo information, BRT lines
+- Housing & Utilities: Rental assistance, affordable housing programs, utility providers
+- Healthcare and Public Health: Finding clinics, vaccination sites, Eskenazi Health services
+- Events & Culture: Local events, museums, parks, sports, and community festivals
+- Neighborhood-Specific Info: Information about specific neighborhoods
+- Civic Engagement: Voting registration help, council district info, volunteer opportunities
+- Text-to-Speech: Voice responses for accessibility
 
-2. Transportation Support:
-   Offers real-time route guidance, IndyGo information, and details about BRT lines like Red and Blue Line services.
+## Security Features
 
-3. Housing & Utilities:
-   Assists with rental assistance, affordable housing programs, utility providers, and home maintenance resources.
+- Secure authentication with Firebase Auth
+- Server-side session management with HttpOnly cookies
+- Rate limiting for API endpoints
+- Content Security Policy implementation
+- Input validation and sanitization
+- Proper error handling and logging
+- Protection against common web vulnerabilities
 
-4. Healthcare and Public Health:
-   Helps users find clinics, vaccination sites, Eskenazi Health services, and MCPHD programs.
+## Tech Stack
 
-5. Events & Culture:
-   Promotes local events, museums, parks, sports, and community festivals with curated and current data.
+- **Frontend**: Next.js (React, TypeScript, TailwindCSS)
+- **Authentication**: Firebase Authentication
+- **Database**: Firebase Firestore
+- **Storage**: Firebase Storage
+- **Hosting**: Vercel
+- **Text-to-Speech**: ElevenLabs API
+- **Security**: Firebase Admin SDK, custom middleware
 
-6. Neighborhood-Specific Info:
-   Can answer granular questions related to specific neighborhoods like Broad Ripple, Fountain Square, Irvington, or Speedway.
+## Prerequisites
 
-7. Civic Engagement:
-   Encourages participation by providing voting registration help, council district info, and volunteer opportunities.
+- Node.js 18.x or later
+- Firebase account and project
+- ElevenLabs API key (for TTS functionality)
 
-8. Multi-Channel Accessibility:
-   Available through both web and mobile interfaces, offering a responsive, consistent experience.
+## Getting Started
 
-Tech Stack:
+1. Clone the repository:
 
-- Frontend Web: Next.js (React, TypeScript, TailwindCSS)
-- Mobile App: React Native (Expo)
-- AI Layer: Dify AI platform with highly customized prompt and system instructions
-- Hosting/Deployment: Vercel (Web), Expo EAS or Firebase (Mobile)
-- Third-party Integrations: City APIs (if available), OpenStreetMap, IndyGo GTFS feeds, VolunteerIndy API (if exposed)
+```bash
+git clone https://github.com/yourusername/IndyChat.git
+cd IndyChat
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your Firebase and ElevenLabs credentials.
+
+4. Set up Firebase:
+   - Create a Firebase project at [firebase.google.com](https://firebase.google.com)
+   - Enable Authentication (Email/Password and Google)
+   - Create a Firestore database
+   - Generate a service account key for Firebase Admin SDK
+   - Add the service account credentials to your `.env.local` file
+
+5. Run the development server:
+
+```bash
+npm run dev
+```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Project Structure
+
+```
+/
+├── app/                    # Next.js App Router
+│   ├── (auth)/             # Authentication routes
+│   ├── api/                # API routes
+│   └── ...                 # Other app routes
+├── components/             # React components
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utility functions and libraries
+│   ├── firebase.ts         # Firebase client configuration
+│   ├── firebase-server.ts  # Server-side Firebase utilities
+│   └── ...                 # Other utilities
+├── public/                 # Static files
+└── types/                  # TypeScript type definitions
+```
+
+## Deployment
+
+This application can be deployed to Vercel with minimal configuration:
+
+1. Push your code to a Git repository
+2. Import the project in Vercel
+3. Add your environment variables in the Vercel project settings
+4. Deploy!
+
+## Security Considerations
+
+- All authentication is handled through Firebase Auth
+- API routes are protected with session verification
+- Rate limiting is applied to prevent abuse
+- Sensitive operations require re-authentication
+- All user input is validated and sanitized
+
+## Scalability Features
+
+- Firebase provides automatic scaling for authentication and database
+- Optimized data fetching with caching strategies
+- Efficient state management to minimize re-renders
+- Lazy loading of components and routes
+- Offline persistence for improved reliability
+
+## License
+
+[MIT](LICENSE)

@@ -6,169 +6,313 @@ import {
   signOut,
   GoogleAuthProvider,
   signInWithPopup,
-  UserCredential,
-  getIdTokenResult,
   onAuthStateChanged,
-  User
+  User,
+  sendEmailVerification,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import {
   getFirestore,
-  collection,
   doc,
   setDoc,
   getDoc,
   updateDoc,
   serverTimestamp,
+  enableIndexedDbPersistence,
+  disableNetwork,
+  enableNetwork,
 } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+
+interface RateLimitEntry {
+  count: number;
+  timestamp: number;
+}
+const rateLimitCache: Record<string, RateLimitEntry> = {};
+const RATE_LIMIT_WINDOW = 60000;
+const RATE_LIMIT_MAX = 5;
+
+const handleFirebaseError = (error: any, context: string) => {
+  console.error(`Firebase ${context} error:`, error);
+
+  const errorCode = error.code || "unknown";
+  const errorMessage = error.message || `An error occurred during ${context}`;
+
+  if (process.env.NODE_ENV === "production") {
+  }
+
+  return {
+    code: errorCode,
+    message: errorMessage,
+    originalError: error,
+  };
+};
+
+const checkRateLimit = (key: string): boolean => {
+  const now = Date.now();
+  const entry = rateLimitCache[key];
+
+  if (!entry || now - entry.timestamp > RATE_LIMIT_WINDOW) {
+    rateLimitCache[key] = { count: 1, timestamp: now };
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
+};
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
+
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    console.error("Firebase persistence error:", err.code);
+  });
+}
 
 export const createUser = async (
   email: string,
   password: string,
   userData: any
-): Promise<UserCredential> => {
-  const userCredential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
+): Promise<{ user: User | null; error: any | null }> => {
+  try {
+    const ipAddress = "client";
+    if (!checkRateLimit(`createUser_${ipAddress}`)) {
+      throw new Error(
+        "Too many account creation attempts. Please try again later."
+      );
+    }
 
-  await createUserProfile(userCredential.user.uid, {
-    ...userData,
-    email,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
-  return userCredential;
+    await sendEmailVerification(userCredential.user);
+
+    await createUserProfile(userCredential.user.uid, {
+      ...userData,
+      email,
+      email_verified: false,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+
+    return { user: userCredential.user, error: null };
+  } catch (error) {
+    return { user: null, error: handleFirebaseError(error, "user creation") };
+  }
 };
 
 export const signIn = async (
   email: string,
   password: string
-): Promise<UserCredential> => {
-  return signInWithEmailAndPassword(auth, email, password);
-};
-
-export const signInWithGoogle = async (): Promise<UserCredential> => {
-  const userCredential = await signInWithPopup(auth, googleProvider);
-  
-  // Check if this user already exists in our Firestore database
-  const userExists = await checkUserExists(userCredential.user.uid);
-  
-  // If the user doesn't exist in Firestore, create a profile
-  if (!userExists) {
-    const { user } = userCredential;
-    await createUserProfile(user.uid, {
-      email: user.email,
-      first_name: user.displayName?.split(' ')[0] || '',
-      last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
-      avatar_url: user.photoURL,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-  }
-  
-  return userCredential;
-};
-
-export const logOut = async (): Promise<void> => {
-  await signOut(auth);
-  
+): Promise<{ user: User | null; error: any | null }> => {
   try {
-    await fetch('/api/auth/signout', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
+    const ipAddress = "client";
+    if (!checkRateLimit(`signIn_${ipAddress}`)) {
+      throw new Error("Too many sign-in attempts. Please try again later.");
+    }
+
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    return { user: userCredential.user, error: null };
   } catch (error) {
-    console.error('Error clearing server session:', error);
+    return { user: null, error: handleFirebaseError(error, "sign in") };
+  }
+};
+
+export const signInWithGoogle = async (): Promise<{
+  user: User | null;
+  error: any | null;
+}> => {
+  try {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+
+    const userExists = await checkUserExists(userCredential.user.uid);
+
+    if (!userExists) {
+      const { user } = userCredential;
+      await createUserProfile(user.uid, {
+        email: user.email,
+        email_verified: user.emailVerified,
+        first_name: user.displayName?.split(" ")[0] || "",
+        last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
+        avatar_url: user.photoURL,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+    }
+
+    return { user: userCredential.user, error: null };
+  } catch (error) {
+    return { user: null, error: handleFirebaseError(error, "Google sign in") };
+  }
+};
+
+export const logOut = async (): Promise<{
+  success: boolean;
+  error: any | null;
+}> => {
+  try {
+    await signOut(auth);
+
+    try {
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch (error) {
+      console.error("Error clearing server session:", error);
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: handleFirebaseError(error, "sign out") };
   }
 };
 
 export const createUserProfile = async (
   userId: string,
   data: any
-): Promise<void> => {
-  const userRef = doc(db, "users", userId);
-  await setDoc(userRef, {
-    ...data,
-    id: userId,
-    role: "user",
-  });
+): Promise<{ success: boolean; error: any | null }> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, {
+      ...data,
+      id: userId,
+      role: "user",
+    });
+    return { success: true, error: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: handleFirebaseError(error, "profile creation"),
+    };
+  }
 };
 
 export const checkUserExists = async (userId: string): Promise<boolean> => {
-  const userRef = doc(db, "users", userId);
-  const userSnap = await getDoc(userRef);
-  return userSnap.exists();
+  try {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    return userSnap.exists();
+  } catch (error) {
+    console.error("Error checking if user exists:", error);
+    return false;
+  }
 };
 
 export const getUserProfile = async (userId: string): Promise<any> => {
-  const userRef = doc(db, "users", userId);
-  const userSnap = await getDoc(userRef);
+  try {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
 
-  if (userSnap.exists()) {
-    return userSnap.data();
+    if (userSnap.exists()) {
+      return userSnap.data();
+    }
+
+    return null;
+  } catch (error) {
+    handleFirebaseError(error, "profile retrieval");
+    return null;
   }
-
-  return null;
 };
 
 export const updateUserProfile = async (
   userId: string,
   data: any
-): Promise<void> => {
-  const userRef = doc(db, "users", userId);
-  await updateDoc(userRef, {
-    ...data,
-    updated_at: serverTimestamp(),
-  });
+): Promise<{ success: boolean; error: any | null }> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, {
+      ...data,
+      updated_at: serverTimestamp(),
+    });
+    return { success: true, error: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: handleFirebaseError(error, "profile update"),
+    };
+  }
 };
 
 export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
-  const profile = await getUserProfile(userId);
-  return profile?.role === "admin";
+  try {
+    const profile = await getUserProfile(userId);
+    return profile?.role === "admin";
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return false;
+  }
 };
 
-// Initialize auth state listener to ensure users are always added to Firestore
-if (typeof window !== 'undefined') {
+export const sendPasswordReset = async (
+  email: string
+): Promise<{ success: boolean; error: any | null }> => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { success: true, error: null };
+  } catch (error) {
+    return {
+      success: false,
+      error: handleFirebaseError(error, "password reset"),
+    };
+  }
+};
+
+export const goOffline = async (): Promise<void> => {
+  await disableNetwork(db);
+};
+
+export const goOnline = async (): Promise<void> => {
+  await enableNetwork(db);
+};
+
+if (typeof window !== "undefined") {
   onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       try {
-        // Check if user exists in Firestore
         const exists = await checkUserExists(user.uid);
-        
-        // If not, create a profile
+
         if (!exists) {
           await createUserProfile(user.uid, {
             email: user.email,
-            first_name: user.displayName?.split(' ')[0] || '',
-            last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
+            email_verified: user.emailVerified,
+            first_name: user.displayName?.split(" ")[0] || "",
+            last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
             avatar_url: user.photoURL,
             created_at: serverTimestamp(),
             updated_at: serverTimestamp(),
           });
-          console.log(`Created new user profile for ${user.email}`);
         }
       } catch (error) {
-        console.error('Error ensuring user exists in Firestore:', error);
+        console.error("Error ensuring user exists in Firestore:", error);
       }
     }
   });
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };

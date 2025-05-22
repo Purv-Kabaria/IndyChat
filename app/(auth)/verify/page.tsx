@@ -3,28 +3,31 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { auth } from "@/lib/firebase";
+import {
+  applyActionCode,
+  checkActionCode,
+  sendEmailVerification,
+  ActionCodeSettings,
+  AuthError,
+} from "firebase/auth";
 
 type VerificationError = {
   message: string;
   code?: string;
 };
 
-type SessionData = {
-  session: {
-    user: {
-      email_confirmed_at?: string;
-    };
-  } | null;
-};
-
 function VerifyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const oobCode = searchParams.get("oobCode") || "";
+  const mode = searchParams.get("mode") || "";
   const redirectTo = searchParams.get("redirectTo") || "/chat";
-  
+
+  const { user } = useAuth();
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,39 +35,70 @@ function VerifyPageContent() {
   const [resending, setResending] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(true);
 
-  // Check if user is already authenticated and if their email is verified
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession() as { 
-          data: SessionData; 
-          error: VerificationError | null 
-        };
-        
-        if (error) {
-          console.error("Error checking session:", error);
-          setError("Error verifying authentication status");
-        } else if (data?.session) {
-          // If user has a session, check if email is verified
-          if (data.session.user.email_confirmed_at) {
-            setMessage("Your email is already verified! Redirecting...");
-            
-            // Always redirect to chat after verification
-            setTimeout(() => {
-              router.push('/chat');
-            }, 2000);
+    const verifyEmailLink = async () => {
+      if (oobCode && mode === "verifyEmail") {
+        setLoading(true);
+        try {
+          await checkActionCode(auth, oobCode);
+
+          await applyActionCode(auth, oobCode);
+
+          setMessage("Email verified successfully! Redirecting...");
+
+          setTimeout(() => {
+            if (user) {
+              router.push("/chat");
+            } else {
+              router.push(
+                `/login?message=${encodeURIComponent(
+                  "Email verified successfully. You can now log in."
+                )}`
+              );
+            }
+          }, 2000);
+        } catch (error) {
+          const authError = error as AuthError;
+          console.error("Email verification error:", authError);
+
+          let errorMessage =
+            "Invalid or expired verification link. Please request a new one.";
+          if (authError.code === "auth/invalid-action-code") {
+            errorMessage =
+              "The verification link has expired or already been used.";
           }
+
+          setError(errorMessage);
+        } finally {
+          setLoading(false);
+          setSessionChecking(false);
         }
-      } catch (err: unknown) {
-        const sessionError = err as VerificationError;
-        console.error("Unexpected error during session check:", sessionError.message);
-      } finally {
+      } else {
         setSessionChecking(false);
       }
     };
-    
-    checkSession();
-  }, [router, redirectTo]);
+
+    const checkVerificationStatus = async () => {
+      if (user) {
+        if (user.emailVerified) {
+          setMessage("Your email is already verified! Redirecting...");
+
+          setTimeout(() => {
+            router.push("/chat");
+          }, 2000);
+        }
+        setSessionChecking(false);
+      } else if (!oobCode) {
+        setSessionChecking(false);
+      }
+    };
+
+    if (oobCode) {
+      verifyEmailLink();
+    } else {
+      checkVerificationStatus();
+    }
+  }, [oobCode, mode, user, router]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,87 +106,70 @@ function VerifyPageContent() {
     setError(null);
 
     try {
-      // First, check if the OTP format seems valid to provide better error messages
-      if (otp.length < 6) {
-        throw new Error("Please enter a valid verification code (at least 6 characters)");
-      }
-      
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "signup"
-      });
-
-      if (error) throw error;
-      
-      setMessage("Email verified successfully! Redirecting...");
-      
-      // Try to get session after verification
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      // Redirect after successful verification
-      setTimeout(() => {
-        // If we have an active session, redirect directly to the chat app
-        if (sessionData?.session) {
-          router.push('/chat');
-        } else {
-          // If no session, redirect to login with a success message
-          router.push(`/login?message=${encodeURIComponent("Account verified successfully. You can now log in.")}`);
-        }
-      }, 2000);
-      
+      setError(
+        "This verification method is not supported. Please use the verification link sent to your email."
+      );
     } catch (error: unknown) {
       console.error("Verification error:", error);
-      
-      // Provide more helpful error messages based on the error
+
       const verifyError = error as VerificationError;
-      let errorMessage = verifyError.message || "Invalid or expired code. Please try again.";
-      
-      if (errorMessage.includes("expired")) {
-        errorMessage = "Your verification code has expired. Please request a new one.";
-      } else if (errorMessage.includes("incorrect") || errorMessage.includes("invalid")) {
-        errorMessage = "Invalid verification code. Please check and try again.";
-      }
-      
+      let errorMessage =
+        verifyError.message || "Invalid or expired code. Please try again.";
+
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
+  const handleResendVerification = async () => {
     if (!email) {
-      setError("Email is required to resend verification code");
+      setError("Email is required to resend verification link");
       return;
     }
-    
+
     setResending(true);
     setError(null);
-    
+
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: email
-      });
-      
-      if (error) throw error;
-      
-      setMessage("A new verification code has been sent to your email");
+      if (user) {
+        await sendEmailVerification(user, {
+          url: `${window.location.origin}/chat`,
+          handleCodeInApp: false,
+        } as ActionCodeSettings);
+      } else {
+        router.push(
+          `/login?message=${encodeURIComponent(
+            "Please log in first to verify your email"
+          )}`
+        );
+        return;
+      }
+
+      setMessage("A new verification link has been sent to your email");
     } catch (error: unknown) {
-      const resendError = error as VerificationError;
-      setError(resendError.message || "Failed to resend verification code");
+      const resendError = error as AuthError;
+
+      let errorMessage =
+        resendError.message || "Failed to resend verification link";
+      if (resendError.code === "auth/too-many-requests") {
+        errorMessage = "Too many requests. Please try again later.";
+      }
+
+      setError(errorMessage);
     } finally {
       setResending(false);
     }
   };
 
-  // Show loading while we check session
   if (sessionChecking) {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
         <div className="flex flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
-          <p className="text-sm text-gray-500">Checking verification status...</p>
+          <p className="text-sm text-gray-500">
+            Checking verification status...
+          </p>
         </div>
       </div>
     );
@@ -162,10 +179,15 @@ function VerifyPageContent() {
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-cal font-bold text-accent">Verify Email</h1>
+          <h1 className="text-3xl font-cal font-bold text-accent">
+            Verify Email
+          </h1>
           <p className="text-sm text-gray-500 mt-2">
-            Enter the verification code sent to{" "}
-            <span className="font-medium">{email || "your email"}</span>
+            {oobCode
+              ? "Verifying your email..."
+              : `Check your inbox for a verification link sent to ${
+                  email || "your email"
+                }`}
           </p>
         </div>
 
@@ -174,54 +196,34 @@ function VerifyPageContent() {
             {error}
           </div>
         )}
-        
+
         {message && (
           <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm">
             {message}
           </div>
         )}
 
-        <form onSubmit={handleVerify} className="space-y-4">
-          <div>
-            <label htmlFor="otp" className="block text-sm font-medium text-accent mb-1">
-              Verification Code
-            </label>
-            <input
-              id="otp"
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter your 6-digit code"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center"
-          >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-            Verify Email
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>
-            Don&apos;t receive a code?{" "}
-            <button 
-              onClick={handleResendOTP}
+        {!oobCode && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500 mb-4">
+              Didn&apos;t receive a verification link?
+            </p>
+            <button
+              onClick={handleResendVerification}
               disabled={resending}
-              className="text-accent hover:underline font-medium disabled:opacity-50"
-            >
-              {resending ? "Sending..." : "Resend code"}
+              className="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-md font-medium transition-colors flex items-center justify-center">
+              {resending ? (
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              ) : null}
+              Resend Verification Link
             </button>
-          </p>
-        </div>
+          </div>
+        )}
 
-        <p className="mt-4 text-center text-sm text-gray-500">
-          <Link href="/login" className="text-accent hover:underline font-medium">
+        <p className="mt-6 text-center text-sm text-gray-500">
+          <Link
+            href="/login"
+            className="text-accent hover:underline font-medium">
             Back to login
           </Link>
         </p>
@@ -230,13 +232,14 @@ function VerifyPageContent() {
   );
 }
 
-// Loading fallback component
 function VerifyPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
       <div className="flex flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
-        <p className="mt-2 text-sm text-gray-500">Loading verification page...</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Loading verification page...
+        </p>
       </div>
     </div>
   );
@@ -248,4 +251,4 @@ export default function VerifyPage() {
       <VerifyPageContent />
     </Suspense>
   );
-} 
+}
