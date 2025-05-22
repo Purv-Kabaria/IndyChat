@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { auth } from "@/lib/firebase";
 import {
   Loader2,
   Upload,
@@ -26,12 +26,10 @@ type Document = {
 
 const DIFY_API_URL =
   process.env.DIFY_API_URL || "https://api.dify.ai/v1";
-const DIFY_API_KEY = process.env.DIFY_KNOWLEDGE_BASE_API_KEY || "";
-const DIFY_DATASET_ID = process.env.DIFY_DATASET_ID || "";
+const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_KNOWLEDGE_BASE_API_KEY || "";
+const DIFY_DATASET_ID = process.env.NEXT_PUBLIC_DIFY_DATASET_ID || "";
 
 export default function DocumentsPage() {
-  const supabase = createClientComponentClient();
-
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -149,11 +147,8 @@ export default function DocumentsPage() {
         );
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
         throw new Error("You must be logged in to upload documents");
       }
 

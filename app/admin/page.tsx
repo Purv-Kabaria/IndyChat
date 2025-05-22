@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Loader2, Search, User, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
-import { getAllUsers, UserProfile } from "@/lib/auth-utils";
+import { getAllUsers, UserProfile, updateUserRole } from "@/lib/auth-utils";
+import { auth } from "@/lib/firebase";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
-  const supabase = createClientComponentClient();
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,41 +36,24 @@ export default function AdminDashboard() {
   const handleRoleToggle = async (userId: string, currentRole: string) => {
     setUpdateLoading(userId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      if (!auth.currentUser) {
         console.error('No active session');
         return;
       }
       
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
       
-      const { error } = await supabase
-        .rpc('set_user_as_admin', { 
-          admin_id: session.user.id, 
-          target_user_id: userId 
-        });
+      // Update user role in Firestore
+      const success = await updateUserRole(userId, newRole as 'user' | 'admin');
       
-      if (error) {
-        console.error('Error updating user role:', error);
-        return;
+      if (success) {
+        // Update local state if the operation was successful
+        setUsers(users.map(user => 
+          user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user
+        ));
+      } else {
+        console.error('Failed to update user role');
       }
-      
-      if (currentRole === 'admin') {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ role: 'user' })
-          .eq('id', userId);
-          
-        if (updateError) {
-          console.error('Error demoting admin user:', updateError);
-          return;
-        }
-      }
-      
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user
-      ));
     } catch (error) {
       console.error('Error toggling role:', error);
     } finally {
@@ -261,7 +243,7 @@ export default function AdminDashboard() {
                           <button
                             key={pageNum}
                             onClick={() => goToPage(pageNum)}
-                            className={`h-8 w-8 flex items-center justify-center rounded-md ${
+                            className={`px-3 py-1 rounded-md ${
                               currentPage === pageNum
                                 ? 'bg-accent text-white'
                                 : 'text-gray-700 hover:bg-gray-100'

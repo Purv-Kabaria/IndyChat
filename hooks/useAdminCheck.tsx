@@ -1,40 +1,49 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { auth } from '@/lib/firebase';
 import { isAdmin } from '@/lib/auth-utils';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export function useAdminCheck() {
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
         setLoading(true);
         
-        const { data: { session } } = await supabase.auth.getSession();
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (!user) {
+            setError('No active session found');
+            setIsAdminUser(false);
+            setLoading(false);
+            return;
+          }
+          
+          try {
+            const adminStatus = await isAdmin(user);
+            setIsAdminUser(adminStatus);
+          } catch (err) {
+            console.error('Error checking admin status:', err);
+            setError('Failed to check admin status');
+            setIsAdminUser(false);
+          } finally {
+            setLoading(false);
+          }
+        });
         
-        if (!session) {
-          setError('No active session found');
-          setIsAdminUser(false);
-          return;
-        }
-        
-        const adminStatus = await isAdmin(session);
-        setIsAdminUser(adminStatus);
-        
+        return () => unsubscribe();
       } catch (err) {
-        console.error('Error checking admin status:', err);
-        setError('Failed to check admin status');
+        console.error('Error in auth state change:', err);
+        setError('Failed to initialize authentication');
         setIsAdminUser(false);
-      } finally {
         setLoading(false);
       }
     };
     
     checkAdminStatus();
-  }, [supabase.auth]);
+  }, []);
 
   return { isAdminUser, loading, error };
 } 
