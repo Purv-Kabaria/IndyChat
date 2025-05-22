@@ -3,15 +3,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  Loader2, User, 
-  ChevronLeft, ChevronRight, ArrowUpDown
+import {
+  Loader2,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
-import { 
-  getAllComplaints, 
-  updateComplaintStatus, 
-  Complaint, 
-  ComplaintStatus 
+import {
+  getAllComplaints,
+  updateComplaintStatus,
+  deleteComplaint,
+  Complaint,
+  ComplaintStatus,
+  ComplaintPriority,
 } from "@/lib/complaints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +38,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 
@@ -48,7 +65,7 @@ type ExtendedComplaint = Complaint & {
 
 export default function ComplaintsAdminPage() {
   const router = useRouter();
-  
+
   const [complaints, setComplaints] = useState<ExtendedComplaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,15 +73,17 @@ export default function ComplaintsAdminPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<string>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  
-  // Selected complaint for actions
-  const [selectedComplaint, setSelectedComplaint] = useState<ExtendedComplaint | null>(null);
+
+  const [selectedComplaint, setSelectedComplaint] =
+    useState<ExtendedComplaint | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<ComplaintStatus>("open");
+  const [newPriority, setNewPriority] = useState<string>("medium");
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [processing, setProcessing] = useState(false);
-  
-  // Pagination states
+  const [deleting, setDeleting] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
@@ -76,13 +95,13 @@ export default function ComplaintsAdminPage() {
           setComplaints(complaintsData as ExtendedComplaint[]);
         }
       } catch (error) {
-        console.error('Error loading complaints:', error);
+        console.error("Error loading complaints:", error);
         toast({
           title: "Error loading complaints",
           description: "You may not have admin permissions to view this page.",
           variant: "destructive",
         });
-        router.push('/');
+        router.push("/");
       } finally {
         setLoading(false);
       }
@@ -91,64 +110,80 @@ export default function ComplaintsAdminPage() {
     loadComplaints();
   }, [router]);
 
-  // Filter and sort complaints
-  const filteredComplaints = complaints.filter(complaint => {
-    const matchesSearch = 
-      complaint.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (complaint.profiles?.email && complaint.profiles.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (complaint.profiles?.first_name && complaint.profiles.first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (complaint.profiles?.last_name && complaint.profiles.last_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === "all" || complaint.status === statusFilter;
-    const matchesType = typeFilter === "all" || complaint.type === typeFilter;
-    
-    return matchesSearch && matchesStatus && matchesType;
-  }).sort((a, b) => {
-    // Handle date fields
-    if (sortField === 'created_at' || sortField === 'updated_at' || sortField === 'resolved_at') {
-      const aValue = a[sortField as keyof ExtendedComplaint] as string | undefined || '';
-      const bValue = b[sortField as keyof ExtendedComplaint] as string | undefined || '';
-      
-      if (sortDirection === 'asc') {
+  const filteredComplaints = complaints
+    .filter((complaint) => {
+      const matchesSearch =
+        complaint.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        complaint.description
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (complaint.profiles?.email &&
+          complaint.profiles.email
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())) ||
+        (complaint.profiles?.first_name &&
+          complaint.profiles.first_name
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())) ||
+        (complaint.profiles?.last_name &&
+          complaint.profiles.last_name
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()));
+
+      const matchesStatus =
+        statusFilter === "all" || complaint.status === statusFilter;
+      const matchesType = typeFilter === "all" || complaint.type === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
+    })
+    .sort((a, b) => {
+      if (
+        sortField === "created_at" ||
+        sortField === "updated_at" ||
+        sortField === "resolved_at"
+      ) {
+        const aValue =
+          (a[sortField as keyof ExtendedComplaint] as string | undefined) || "";
+        const bValue =
+          (b[sortField as keyof ExtendedComplaint] as string | undefined) || "";
+
+        if (sortDirection === "asc") {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      }
+
+      if (sortField === "priority") {
+        const priorityOrder = { urgent: 3, high: 2, medium: 1, low: 0 };
+        const aValue =
+          priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+        const bValue =
+          priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+
+        if (sortDirection === "asc") {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      }
+
+      const aValue = String(a[sortField as keyof ExtendedComplaint] || "");
+      const bValue = String(b[sortField as keyof ExtendedComplaint] || "");
+
+      if (sortDirection === "asc") {
         return aValue.localeCompare(bValue);
       } else {
         return bValue.localeCompare(aValue);
       }
-    }
-    
-    // Handle priority
-    if (sortField === 'priority') {
-      const priorityOrder = { 'urgent': 3, 'high': 2, 'medium': 1, 'low': 0 };
-      const aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-      const bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
-      
-      if (sortDirection === 'asc') {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
-    }
-    
-    // Default string comparison
-    const aValue = String(a[sortField as keyof ExtendedComplaint] || '');
-    const bValue = String(b[sortField as keyof ExtendedComplaint] || '');
-    
-    if (sortDirection === 'asc') {
-      return aValue.localeCompare(bValue);
-    } else {
-      return bValue.localeCompare(aValue);
-    }
-  });
+    });
 
-  // Calculate pagination
   const totalPages = Math.ceil(filteredComplaints.length / pageSize);
   const paginatedComplaints = filteredComplaints.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
 
-  // Handle page navigation
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -157,40 +192,45 @@ export default function ComplaintsAdminPage() {
 
   const toggleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection('desc');
+      setSortDirection("desc");
     }
   };
 
   const handleUpdateStatus = async () => {
     if (!selectedComplaint) return;
-    
+
     setProcessing(true);
-    
+
     try {
       const updatedComplaint = await updateComplaintStatus(
         selectedComplaint.id!,
         newStatus,
-        resolutionNotes
+        resolutionNotes,
+        newPriority as ComplaintPriority
       );
-      
-      setComplaints(complaints.map(complaint => 
-        complaint.id === updatedComplaint.id ? {...complaint, ...updatedComplaint} : complaint
-      ));
-      
+
+      setComplaints(
+        complaints.map((complaint) =>
+          complaint.id === updatedComplaint.id
+            ? { ...complaint, ...updatedComplaint }
+            : complaint
+        )
+      );
+
       toast({
-        title: "Status updated",
-        description: `Complaint status has been updated to ${newStatus}.`,
+        title: "Complaint updated",
+        description: `Status changed to ${newStatus} and priority set to ${newPriority}.`,
       });
-      
+
       setUpdateDialogOpen(false);
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error("Error updating complaint:", error);
       toast({
-        title: "Error updating status",
-        description: "There was a problem updating the complaint status.",
+        title: "Error updating complaint",
+        description: "There was a problem updating the complaint.",
         variant: "destructive",
       });
     } finally {
@@ -198,46 +238,114 @@ export default function ComplaintsAdminPage() {
     }
   };
 
+  const handleDeleteComplaint = async () => {
+    if (!selectedComplaint || !selectedComplaint.id) return;
+    
+    setDeleting(true);
+    
+    try {
+      await deleteComplaint(selectedComplaint.id);
+      
+      // Remove the deleted complaint from the state
+      setComplaints(complaints.filter(complaint => complaint.id !== selectedComplaint.id));
+      
+      toast({
+        title: "Complaint deleted",
+        description: "The complaint has been permanently deleted.",
+      });
+      
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Error deleting complaint:", error);
+      toast({
+        title: "Error deleting complaint",
+        description: "There was a problem deleting the complaint.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getStatusBadge = (status: ComplaintStatus) => {
     switch (status) {
-      case 'open':
-        return <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50">Open</Badge>;
-      case 'under_review':
-        return <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Under Review</Badge>;
-      case 'resolved':
-        return <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">Resolved</Badge>;
-      case 'closed':
-        return <Badge variant="outline" className="border-gray-500 text-gray-700 bg-gray-50">Closed</Badge>;
+      case "open":
+        return (
+          <Badge
+            variant="outline"
+            className="border-blue-500 text-blue-700 bg-blue-50">
+            Open
+          </Badge>
+        );
+      case "under_review":
+        return (
+          <Badge
+            variant="outline"
+            className="border-yellow-500 text-yellow-700 bg-yellow-50">
+            Under Review
+          </Badge>
+        );
+      case "resolved":
+        return (
+          <Badge
+            variant="outline"
+            className="border-green-500 text-green-700 bg-green-50">
+            Resolved
+          </Badge>
+        );
+      case "closed":
+        return (
+          <Badge
+            variant="outline"
+            className="border-gray-500 text-gray-700 bg-gray-50">
+            Closed
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getPriorityBadge = (priority: string = 'medium') => {
+  const getPriorityBadge = (priority: string = "medium") => {
     switch (priority) {
-      case 'urgent':
-        return <Badge className="bg-red-500">Urgent</Badge>;
-      case 'high':
-        return <Badge className="bg-orange-500">High</Badge>;
-      case 'medium':
-        return <Badge className="bg-blue-500">Medium</Badge>;
-      case 'low':
-        return <Badge className="bg-green-500">Low</Badge>;
+      case "urgent":
+        return (
+          <Badge className="bg-red-500 text-white hover:bg-red-600">
+            Urgent
+          </Badge>
+        );
+      case "high":
+        return (
+          <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+            High
+          </Badge>
+        );
+      case "medium":
+        return (
+          <Badge className="bg-blue-500 text-white hover:bg-blue-600">
+            Medium
+          </Badge>
+        );
+      case "low":
+        return (
+          <Badge className="bg-green-500 text-white hover:bg-green-600">
+            Low
+          </Badge>
+        );
       default:
         return <Badge>{priority}</Badge>;
     }
   };
 
-  // Format date for display
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -254,8 +362,12 @@ export default function ComplaintsAdminPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Complaints & Reports Dashboard</h1>
-          <p className="text-gray-600 mb-4">Manage user complaints, reports, and feedback.</p>
+          <h1 className="text-2xl font-bold mb-2">
+            Complaints & Reports Dashboard
+          </h1>
+          <p className="text-gray-600 mb-4">
+            Manage user complaints, reports, and feedback.
+          </p>
         </div>
         <Link href="/admin">
           <Button variant="outline" className="mt-2 md:mt-0">
@@ -276,39 +388,78 @@ export default function ComplaintsAdminPage() {
         </div>
         <div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="under_review">Under Review</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
+            <SelectContent className="bg-white border border-gray-200 shadow-md">
+              <SelectItem
+                value="all"
+                className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                All Statuses
+              </SelectItem>
+              <SelectItem
+                value="open"
+                className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
+                Open
+              </SelectItem>
+              <SelectItem
+                value="under_review"
+                className="text-yellow-700 hover:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-800 cursor-pointer">
+                Under Review
+              </SelectItem>
+              <SelectItem
+                value="resolved"
+                className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
+                Resolved
+              </SelectItem>
+              <SelectItem
+                value="closed"
+                className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                Closed
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="complaint">Complaints</SelectItem>
-              <SelectItem value="report">Reports</SelectItem>
-              <SelectItem value="feedback">Feedback</SelectItem>
-              <SelectItem value="suggestion">Suggestions</SelectItem>
+            <SelectContent className="bg-white border border-gray-200 shadow-md">
+              <SelectItem
+                value="all"
+                className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                All Types
+              </SelectItem>
+              <SelectItem
+                value="complaint"
+                className="text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-800 cursor-pointer">
+                Complaints
+              </SelectItem>
+              <SelectItem
+                value="report"
+                className="text-orange-700 hover:bg-orange-50 focus:bg-orange-50 focus:text-orange-800 cursor-pointer">
+                Reports
+              </SelectItem>
+              <SelectItem
+                value="feedback"
+                className="text-purple-700 hover:bg-purple-50 focus:bg-purple-50 focus:text-purple-800 cursor-pointer">
+                Feedback
+              </SelectItem>
+              <SelectItem
+                value="suggestion"
+                className="text-teal-700 hover:bg-teal-50 focus:bg-teal-50 focus:text-teal-800 cursor-pointer">
+                Suggestions
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="icon"
-            onClick={() => toggleSort('created_at')}
-            className="flex-shrink-0"
-          >
+            onClick={() => toggleSort("created_at")}
+            className="flex-shrink-0 hover:bg-accent/10">
             <ArrowUpDown className="h-4 w-4" />
           </Button>
           <span className="text-sm text-gray-500">
@@ -323,55 +474,50 @@ export default function ComplaintsAdminPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('id')}
-                >
+                  onClick={() => toggleSort("id")}>
                   ID
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('type')}
-                >
+                  onClick={() => toggleSort("type")}>
                   Type
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('subject')}
-                >
+                  onClick={() => toggleSort("subject")}>
                   Subject
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('status')}
-                >
+                  onClick={() => toggleSort("status")}>
                   Status
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('priority')}
-                >
+                  onClick={() => toggleSort("priority")}>
                   Priority
                 </th>
-                <th 
-                  scope="col" 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort('created_at')}
-                >
+                  onClick={() => toggleSort("created_at")}>
                   Submitted
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -399,7 +545,10 @@ export default function ComplaintsAdminPage() {
                       {complaint.profiles ? (
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1 text-gray-400" />
-                          <span>{complaint.profiles.first_name} {complaint.profiles.last_name}</span>
+                          <span>
+                            {complaint.profiles.first_name}{" "}
+                            {complaint.profiles.last_name}
+                          </span>
                         </div>
                       ) : (
                         "Unknown"
@@ -409,24 +558,41 @@ export default function ComplaintsAdminPage() {
                       {formatDate(complaint.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedComplaint(complaint);
-                          setNewStatus(complaint.status as ComplaintStatus || 'open');
-                          setResolutionNotes(complaint.resolution_notes || '');
-                          setUpdateDialogOpen(true);
-                        }}
-                      >
-                        Update
-                      </Button>
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedComplaint(complaint);
+                            setNewStatus(
+                              (complaint.status as ComplaintStatus) || "open"
+                            );
+                            setNewPriority(complaint.priority || "medium");
+                            setResolutionNotes(complaint.resolution_notes || "");
+                            setUpdateDialogOpen(true);
+                          }}
+                          className="hover:bg-accent/10">
+                          Update
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedComplaint(complaint);
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="hover:bg-red-50 text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td
+                    colSpan={8}
+                    className="px-6 py-4 text-center text-sm text-gray-500">
                     No complaints found.
                   </td>
                 </tr>
@@ -444,8 +610,7 @@ export default function ComplaintsAdminPage() {
               variant="outline"
               size="sm"
               onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
+              disabled={currentPage === 1}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm">
@@ -455,8 +620,7 @@ export default function ComplaintsAdminPage() {
               variant="outline"
               size="sm"
               onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
+              disabled={currentPage === totalPages}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -465,55 +629,125 @@ export default function ComplaintsAdminPage() {
 
       {/* Update Status Dialog */}
       <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Complaint Status</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="bg-white border-0 shadow-lg">
+          <DialogHeader className="border-b pb-4 mb-4">
+            <DialogTitle className="text-xl font-bold text-accent-dark">
+              Update Complaint Status
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
               Change the status and add resolution notes if needed.
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedComplaint && (
-            <div className="space-y-4 py-2">
-              <div className="grid gap-2">
-                <h3 className="font-semibold">{selectedComplaint.subject}</h3>
-                <p className="text-sm text-gray-500 mt-1 max-h-24 overflow-y-auto">
+            <div className="space-y-5 py-2">
+              <div className="grid gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <h3 className="font-semibold text-gray-900">
+                  {selectedComplaint.subject}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1 max-h-24 overflow-y-auto">
                   {selectedComplaint.description}
                 </p>
               </div>
-              
+
               <div className="grid gap-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={newStatus} onValueChange={(value) => setNewStatus(value as ComplaintStatus)}>
-                  <SelectTrigger>
+                <label className="text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <Select
+                  value={newStatus}
+                  onValueChange={(value) =>
+                    setNewStatus(value as ComplaintStatus)
+                  }>
+                  <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="under_review">Under Review</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
+                  <SelectContent className="bg-white border border-gray-200 shadow-md">
+                    <SelectItem
+                      value="open"
+                      className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
+                      Open
+                    </SelectItem>
+                    <SelectItem
+                      value="under_review"
+                      className="text-yellow-700 hover:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-800 cursor-pointer">
+                      Under Review
+                    </SelectItem>
+                    <SelectItem
+                      value="resolved"
+                      className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
+                      Resolved
+                    </SelectItem>
+                    <SelectItem
+                      value="closed"
+                      className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                      Closed
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid gap-2">
-                <label className="text-sm font-medium">Resolution Notes</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Priority
+                </label>
+                <Select
+                  value={newPriority}
+                  onValueChange={(value) => setNewPriority(value)}>
+                  <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 shadow-md">
+                    <SelectItem
+                      value="low"
+                      className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
+                      Low
+                    </SelectItem>
+                    <SelectItem
+                      value="medium"
+                      className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
+                      Medium
+                    </SelectItem>
+                    <SelectItem
+                      value="high"
+                      className="text-orange-700 hover:bg-orange-50 focus:bg-orange-50 focus:text-orange-800 cursor-pointer">
+                      High
+                    </SelectItem>
+                    <SelectItem
+                      value="urgent"
+                      className="text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-800 cursor-pointer">
+                      Urgent
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Resolution Notes
+                </label>
                 <Textarea
                   placeholder="Add notes about how this was resolved or additional information"
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   rows={4}
+                  className="bg-white border-gray-300 focus:border-accent resize-none"
                 />
               </div>
             </div>
           )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+
+          <DialogFooter className="border-t pt-4 mt-4 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setUpdateDialogOpen(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50">
               Cancel
             </Button>
-            <Button onClick={handleUpdateStatus} disabled={processing}>
+            <Button
+              onClick={handleUpdateStatus}
+              disabled={processing}
+              className="bg-accent text-white hover:bg-accent-dark">
               {processing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -526,6 +760,62 @@ export default function ComplaintsAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Delete Complaint
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the complaint
+              and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          {selectedComplaint && (
+            <div className="bg-gray-50 p-4 rounded-md border border-gray-200 my-4">
+              <p className="font-medium text-gray-800">{selectedComplaint.subject}</p>
+              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                {selectedComplaint.description}
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-xs">
+                  {selectedComplaint.type}
+                </Badge>
+                {selectedComplaint.profiles && (
+                  <span className="text-xs text-gray-500">
+                    by {selectedComplaint.profiles.first_name} {selectedComplaint.profiles.last_name}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteComplaint();
+              }}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Complaint"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-} 
+}

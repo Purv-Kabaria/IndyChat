@@ -10,7 +10,8 @@ import {
   orderBy, 
   getDoc, 
   serverTimestamp, 
-  Timestamp 
+  Timestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import { getUserProfile } from '@/lib/firebase';
 
@@ -189,7 +190,8 @@ export async function getAllComplaints() {
 export async function updateComplaintStatus(
   complaintId: string, 
   status: ComplaintStatus, 
-  resolutionNotes?: string
+  resolutionNotes?: string,
+  priority?: ComplaintPriority
 ) {
   try {
     const currentUser = auth.currentUser;
@@ -210,6 +212,7 @@ export async function updateComplaintStatus(
       updated_at: any;
       resolved_at?: string;
       resolution_notes?: string;
+      priority?: ComplaintPriority;
     } = { 
       status, 
       updated_at: serverTimestamp()
@@ -223,6 +226,11 @@ export async function updateComplaintStatus(
     // Add resolution notes if provided
     if (resolutionNotes) {
       updateData.resolution_notes = resolutionNotes;
+    }
+    
+    // Update priority if provided
+    if (priority) {
+      updateData.priority = priority;
     }
     
     await updateDoc(complaintRef, updateData);
@@ -284,6 +292,40 @@ export async function assignComplaint(complaintId: string, staffUserId: string) 
     throw new Error('Failed to retrieve the updated complaint');
   } catch (error) {
     console.error('Error assigning complaint:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete complaint (admin only)
+ */
+export async function deleteComplaint(complaintId: string) {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('User must be logged in to delete complaints');
+    }
+    
+    // Check if user is admin
+    const userProfile = await getUserProfile(currentUser.uid);
+    if (!userProfile || userProfile.role !== 'admin') {
+      throw new Error('Only admins can delete complaints');
+    }
+    
+    const complaintRef = doc(db, 'complaints', complaintId);
+    
+    // Check if complaint exists
+    const complaintDoc = await getDoc(complaintRef);
+    if (!complaintDoc.exists()) {
+      throw new Error('Complaint not found');
+    }
+    
+    // Delete the complaint
+    await deleteDoc(complaintRef);
+    
+    return { success: true, id: complaintId };
+  } catch (error) {
+    console.error('Error deleting complaint:', error);
     throw error;
   }
 } 
