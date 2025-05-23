@@ -1,0 +1,102 @@
+:root {
+    --primary-color: #243B5F;
+    --secondary-color: #1e1e2f;
+    --light-background: #f9f9f9;
+    --dark-background: #121212;
+    --light-text: #333;
+    --dark-text: #f0f0f0;
+    --font-size-small: 0.9em;
+    --font-size-medium: 1.1em;
+    --font-size-large: 1.3em;
+}
+
+*{
+    transition-duration: 0.5s;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: white;
+    color: var(--dark-text);
+}
+
+/* Headings */
+h1 {
+    font-size: 3em;
+    margin: 1em 0;
+    text-align: center;
+}
+
+/* Navbar */
+.navbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.navbar button {
+    padding: 0.5em 1.2em;
+    font-size: 1em;
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color var(--transition-speed), transform var(--transition-speed);
+}
+
+.navbar button:hover {
+    background-color: #243B5F;
+    color: white;
+    transform: scale(1.08);
+}
+
+/* Card Styles */
+.card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    margin: 1rem;
+    padding: 1rem;
+    transition: transform var(--transition-speed);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card img {
+    width: 100%;
+    border-radius: 10px;
+    transition: transform var(--transition-speed);
+}
+
+.card img:hover {
+    transform: scale(1.05);
+}
+
+/* Buttons */
+button {
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 0.5em 1.2em;
+    transition: background-color var(--transition-speed), transform var(--transition-speed);
+}
+
+
+/* Light / Dark Mode */
+.dark-mode {
+    background-color: var(--dark-background);
+    color: var(--dark-text);
+}
+
+.light-mode {
+    background-color: white;
+    color: var(--light-text);
+}
+
