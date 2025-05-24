@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { adminAuth } from "@/app/api/auth/firebase-admin";
+import { applySecurityHeaders } from "@/lib/auth-utils";
 
 export async function POST() {
   try {
@@ -27,9 +28,14 @@ export async function POST() {
       sameSite: "strict",
     });
 
-    return NextResponse.json({ status: "success" });
+    const response = NextResponse.json({ status: "success" });
+    return applySecurityHeaders(response);
   } catch (error) {
     console.error("Signout error:", error);
-    return NextResponse.json({ error: "Failed to sign out" }, { status: 500 });
+    const errorResponse = NextResponse.json(
+      { error: "Failed to sign out" },
+      { status: 500 }
+    );
+    return applySecurityHeaders(errorResponse);
   }
 }

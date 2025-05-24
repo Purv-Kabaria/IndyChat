@@ -91,13 +91,13 @@ const checkRateLimit = (key: string): boolean => {
 };
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.FIREBASE_API_KEY || "",
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.FIREBASE_APP_ID || "",
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID || "",
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -131,7 +131,10 @@ export const createUser = async (
       password
     );
 
-    await sendEmailVerification(userCredential.user);
+    await sendEmailVerification(userCredential.user, {
+      url: `${typeof window !== 'undefined' ? window.location.origin : ''}/verify?email=${encodeURIComponent(email)}`,
+      handleCodeInApp: false,
+    });
 
     await createUserProfile(userCredential.user.uid, {
       ...userData,
@@ -141,7 +144,12 @@ export const createUser = async (
       updated_at: serverTimestamp(),
     });
 
-    return { user: userCredential.user, error: null };
+    await signOut(auth);
+
+    return { 
+      user: userCredential.user, 
+      error: null 
+    };
   } catch (error) {
     return { user: null, error: handleFirebaseError(error, "user creation") };
   }
@@ -162,6 +170,16 @@ export const signIn = async (
       email,
       password
     );
+    
+    // Check if email is verified
+    if (!userCredential.user.emailVerified) {
+      // If not verified, send a new verification email
+      await sendEmailVerification(userCredential.user, {
+        url: `${typeof window !== 'undefined' ? window.location.origin : ''}/verify?email=${encodeURIComponent(email)}`,
+        handleCodeInApp: false,
+      });
+    }
+    
     return { user: userCredential.user, error: null };
   } catch (error) {
     return { user: null, error: handleFirebaseError(error, "sign in") };

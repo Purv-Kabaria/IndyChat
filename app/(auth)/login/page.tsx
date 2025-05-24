@@ -31,6 +31,13 @@ function LoginPageContent() {
 
     try {
       const userCredential = await signIn(email, password);
+      
+      // Check if email is verified
+      if (userCredential.user && !userCredential.user.emailVerified) {
+        // Redirect to verification page if email is not verified
+        router.push(`/verify?email=${encodeURIComponent(email)}`);
+        return;
+      }
 
       const profile = await getUserProfile(userCredential.user?.uid || "");
 

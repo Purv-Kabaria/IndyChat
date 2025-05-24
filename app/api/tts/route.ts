@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, getUserProfile } from "@/lib/firebase-server";
 import { DEFAULT_VOICE_ID } from "@/functions/ttsUtils";
+import { applySecurityHeaders, isPublicRoute } from "@/lib/auth-utils";
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
@@ -24,64 +25,99 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// Simple auth check for Edge API routes
+async function simpleAuthCheck(req: NextRequest): Promise<boolean> {
+  const cookieHeader = req.headers.get('cookie');
+  if (!cookieHeader) return false;
+  
+  // Just check if the session cookie exists
+  // We can't verify it in Edge Runtime, but this provides basic protection
+  const hasSessionCookie = cookieHeader.includes('__session=');
+  return hasSessionCookie;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const pathname = request.nextUrl.pathname;
+    
+    // Skip auth for public routes
+    if (!isPublicRoute(pathname)) {
+      // For protected routes, check for authentication
+      const isAuthenticated = await simpleAuthCheck(request);
+      
+      if (!isAuthenticated) {
+        return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      }
+    }
+    
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
       console.error("Missing ElevenLabs API key");
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "TTS service configuration error" },
         { status: 500 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const errorResponse = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return applySecurityHeaders(errorResponse);
     }
 
     const userProfile = await getUserProfile();
     if (!userProfile) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "User profile not found" },
         { status: 404 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const ttsEnabled = userProfile.tts_enabled || false;
     if (!ttsEnabled) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "Text-to-speech is not enabled for this account" },
         { status: 403 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     let body;
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "Invalid request body" },
         { status: 400 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const { text } = body;
     if (!text || typeof text !== "string") {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "Text is required and must be a string" },
         { status: 400 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const userId = user.uid;
     const textLength = text.length;
 
     if (!checkRateLimit(userId, textLength)) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: "Rate limit exceeded. Please try again later." },
         { status: 429 }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const voiceId = body.voiceId || userProfile.voice_id || DEFAULT_VOICE_ID;
@@ -118,27 +154,31 @@ export async function POST(request: NextRequest) {
         console.error("Error parsing ElevenLabs error response:", e);
       }
 
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { error: errorMessage },
         { status: response.status }
       );
+      return applySecurityHeaders(errorResponse);
     }
 
     const audioBuffer = await response.arrayBuffer();
 
-    return new NextResponse(audioBuffer, {
+    const successResponse = new NextResponse(audioBuffer, {
       headers: {
         "Content-Type": "audio/mpeg",
         "Content-Length": audioBuffer.byteLength.toString(),
         "Cache-Control": "private, max-age=3600",
       },
     });
+    
+    return applySecurityHeaders(successResponse);
   } catch (error) {
     console.error("Error in TTS API:", error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+    return applySecurityHeaders(errorResponse);
   }
 }
 

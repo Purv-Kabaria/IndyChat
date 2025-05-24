@@ -14,6 +14,7 @@ import {
   updateEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  reload,
 } from "firebase/auth";
 import { auth, getUserProfile } from "@/lib/firebase";
 
@@ -21,6 +22,8 @@ interface AuthContextType {
   user: User | null;
   userProfile: any | null;
   loading: boolean;
+  isEmailVerified: boolean;
+  refreshUser: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<void>;
@@ -33,12 +36,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+
+  // Function to refresh the user and check email verification status
+  const refreshUser = async () => {
+    if (auth.currentUser) {
+      try {
+        await reload(auth.currentUser);
+        setIsEmailVerified(auth.currentUser.emailVerified);
+      } catch (error) {
+        console.error("Error refreshing user:", error);
+      }
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
 
       if (authUser) {
+        // Make sure we have the latest email verification status
+        try {
+          await reload(authUser);
+          setIsEmailVerified(authUser.emailVerified);
+        } catch (error) {
+          console.error("Error reloading user:", error);
+        }
+
         try {
           const profile = await getUserProfile(authUser.uid);
           setUserProfile(profile);
@@ -47,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setUserProfile(null);
+        setIsEmailVerified(false);
       }
 
       setLoading(false);
@@ -85,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     userProfile,
     loading,
+    isEmailVerified,
+    refreshUser,
     sendVerificationEmail,
     resetPassword,
     updateUserPassword,

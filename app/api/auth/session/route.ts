@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { adminAuth, verifyIdToken } from "@/app/api/auth/firebase-admin";
+import { applySecurityHeaders } from "@/lib/auth-utils";
 
 const SESSION_EXPIRY = 60 * 60 * 24 * 14;
 
@@ -9,7 +10,11 @@ export async function POST(request: NextRequest) {
     const { idToken } = await request.json();
 
     if (!idToken) {
-      return NextResponse.json({ error: "Missing ID token" }, { status: 400 });
+      const errorResponse = NextResponse.json(
+        { error: "Missing ID token" },
+        { status: 400 }
+      );
+      return applySecurityHeaders(errorResponse);
     }
 
     try {
@@ -28,17 +33,23 @@ export async function POST(request: NextRequest) {
         sameSite: "strict",
       });
 
-      return NextResponse.json({ status: "success" });
+      const successResponse = NextResponse.json({ status: "success" });
+      return applySecurityHeaders(successResponse);
     } catch (sessionError) {
       console.error("Error creating session:", sessionError);
-      return NextResponse.json({ error: "Invalid ID token" }, { status: 401 });
+      const errorResponse = NextResponse.json(
+        { error: "Invalid ID token" },
+        { status: 401 }
+      );
+      return applySecurityHeaders(errorResponse);
     }
   } catch (requestError) {
     console.error("Session creation error:", requestError);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+    return applySecurityHeaders(errorResponse);
   }
 }
 
@@ -48,7 +59,8 @@ export async function GET() {
     const sessionCookie = cookieStore.get("__session")?.value;
 
     if (!sessionCookie) {
-      return NextResponse.json({ authenticated: false });
+      const response = NextResponse.json({ authenticated: false });
+      return applySecurityHeaders(response);
     }
 
     try {
@@ -57,7 +69,7 @@ export async function GET() {
         true
       );
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         authenticated: true,
         user: {
           uid: decodedClaims.uid,
@@ -65,22 +77,24 @@ export async function GET() {
           emailVerified: decodedClaims.email_verified,
         },
       });
+      return applySecurityHeaders(response);
     } catch {
-      return NextResponse.json({ authenticated: false });
+      const response = NextResponse.json({ authenticated: false });
+      return applySecurityHeaders(response);
     }
   } catch (sessionError) {
     console.error("Session verification error:", sessionError);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+    return applySecurityHeaders(errorResponse);
   }
 }
 
 export async function DELETE() {
   try {
     const cookieStore = await cookies();
-
     cookieStore.set("__session", "", {
       maxAge: 0,
       httpOnly: true,
@@ -89,12 +103,14 @@ export async function DELETE() {
       sameSite: "strict",
     });
 
-    return NextResponse.json({ status: "success" });
+    const response = NextResponse.json({ status: "success" });
+    return applySecurityHeaders(response);
   } catch (sessionError) {
     console.error("Session deletion error:", sessionError);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+    return applySecurityHeaders(errorResponse);
   }
 }

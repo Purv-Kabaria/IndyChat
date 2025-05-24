@@ -9,6 +9,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
+import { NextRequest, NextResponse } from 'next/server';
 
 export type UserRole = "user" | "admin";
 
@@ -129,4 +130,130 @@ export async function getAllUsers(): Promise<UserProfile[] | null> {
     console.error("Unexpected error fetching all users:", error);
     return null;
   }
+}
+
+export const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com;"
+};
+
+export const publicRoutes = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/verify",
+  "/api/auth/signin",
+  "/api/auth/signup",
+  "/api/auth/reset-password",
+  "/chat"
+];
+
+export const RATE_LIMIT_WINDOW = 60 * 1000;
+export const MAX_REQUESTS_PER_WINDOW = {
+  "api/auth": 10,
+  api: 60,
+  default: 100,
+};
+
+const rateLimitStore: Record<string, { count: number; timestamp: number }> = {};
+
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(rateLimitStore).forEach((key) => {
+    if (now - rateLimitStore[key].timestamp > RATE_LIMIT_WINDOW) {
+      delete rateLimitStore[key];
+    }
+  });
+}, 5 * 60 * 1000);
+
+export function isPublicRoute(pathname: string): boolean {
+  if (publicRoutes.includes(pathname)) {
+    return true;
+  }
+
+  if (
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/images/") ||
+    pathname.startsWith("/fonts/") ||
+    pathname.startsWith("/favicon") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".js") ||
+    pathname.endsWith(".css")
+  ) {
+    return true;
+  }
+
+  if (
+    pathname.startsWith("/api/auth/") ||
+    pathname.includes("oobCode=") ||
+    pathname.includes("mode=") ||
+    pathname.includes("apiKey=") ||
+    pathname.includes("continueUrl=")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getRateLimitKey(pathname: string, ip: string): string {
+  if (pathname.startsWith("/api/auth/")) {
+    return `auth:${ip}`;
+  } else if (pathname.startsWith("/api/")) {
+    return `api:${ip}`;
+  }
+  return `default:${ip}`;
+}
+
+export function applyRateLimit(key: string, pathname: string): boolean {
+  const now = Date.now();
+
+  let limit = MAX_REQUESTS_PER_WINDOW.default;
+  if (pathname.startsWith("/api/auth/")) {
+    limit = MAX_REQUESTS_PER_WINDOW["api/auth"];
+  } else if (pathname.startsWith("/api/")) {
+    limit = MAX_REQUESTS_PER_WINDOW.api;
+  }
+
+  if (!rateLimitStore[key]) {
+    rateLimitStore[key] = { count: 1, timestamp: now };
+    return true;
+  }
+
+  const entry = rateLimitStore[key];
+
+  if (now - entry.timestamp > RATE_LIMIT_WINDOW) {
+    entry.count = 1;
+    entry.timestamp = now;
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= limit;
+}
+
+export function applySecurityHeaders(response: NextResponse): NextResponse {
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
+export function parseCookies(request: NextRequest): Record<string, string> {
+  const cookieHeader = request.headers.get('cookie');
+  if (!cookieHeader) return {};
+  
+  return cookieHeader.split(';').reduce((cookies, cookie) => {
+    const [name, value] = cookie.trim().split('=');
+    if (name && value) cookies[name] = decodeURIComponent(value);
+    return cookies;
+  }, {} as Record<string, string>);
 }

@@ -1,11 +1,8 @@
 "use client";
 
 import dynamic from 'next/dynamic';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { Loader2 } from "lucide-react";
-import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 const ChatComponent = dynamic(
   () => import('@/components/chat/ChatComponent'),
@@ -20,19 +17,6 @@ const ChatComponent = dynamic(
 );
 
 function ChatPageContent() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/login?message=Please log in to access chat');
-        return;
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   return (
     <div className="min-h-[100dvh] max-h-[100dvh] w-full overflow-hidden">
       <Suspense fallback={
