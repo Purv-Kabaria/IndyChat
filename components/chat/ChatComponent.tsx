@@ -29,7 +29,7 @@ import { STTButton } from "@/components/ui/STTButton";
 import { auth, updateUserProfile } from '@/lib/firebase';
 import ChatSidebar from "./ChatSidebar";
 import { ComplaintMessage } from "./ComplaintMessage";
-import { ComplaintType } from "@/lib/complaints";
+import { ComplaintType } from "@/functions/complaintUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import { UserRole } from '@/lib/auth-utils';
 

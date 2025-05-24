@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ComplaintForm } from '@/components/chat/ComplaintForm';
-import { ComplaintType } from '@/lib/complaints';
+import { ComplaintType } from '@/functions/complaintUtils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertCircle, FileText, MessageSquare, Lightbulb } from 'lucide-react';
