@@ -2,7 +2,7 @@
 const nextConfig = {
   /* config options here */
   env: {
-    DIFY_API_KEY: process.env.NEXT_PUBLIC_DIFY_API_KEY,
+    DIFY_API_KEY: process.env.DIFY_API_KEY,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   },
   images: {

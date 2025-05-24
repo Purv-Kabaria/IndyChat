@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
-import { User, onAuthStateChanged } from "firebase/auth";
-import { auth, getUserProfile, UserProfile } from "./firebase";
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User, onAuthStateChanged } from 'firebase/auth';
+import { auth, getUserProfile } from './firebase';
 
 type AuthContextType = {
   user: User | null;
-  userProfile: UserProfile | null;
+  userProfile: any | null;
   loading: boolean;
 };
 
@@ -26,24 +20,25 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
-
+      
       if (user) {
+        // Fetch the user's profile data from Firestore
         try {
           const profileData = await getUserProfile(user.uid);
-          setUserProfile(profileData as UserProfile);
+          setUserProfile(profileData);
         } catch (error) {
-          console.error("Error fetching user profile:", error);
+          console.error('Error fetching user profile:', error);
         }
       } else {
         setUserProfile(null);
       }
-
+      
       setLoading(false);
     });
 
@@ -55,4 +50,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}; 

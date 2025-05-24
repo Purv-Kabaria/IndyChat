@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_API_KEY;
+const DIFY_API_KEY = process.env.DIFY_API_KEY;
 const DIFY_UPLOAD_API_URL = "https://api.dify.ai/v1/files/upload";
 
 type UploadError = {

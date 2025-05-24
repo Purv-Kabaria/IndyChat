@@ -21,7 +21,7 @@ type RequestBody = {
   files?: FileData[];
 };
 
-const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_API_KEY;
+const DIFY_API_KEY = process.env.DIFY_API_KEY;
 const DIFY_API_URL = "https://api.dify.ai/v1/chat-messages";
 
 export const runtime = 'edge'; 

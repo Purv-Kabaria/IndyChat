@@ -2,8 +2,7 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { auth } from "@/lib/firebase";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 
 type AuthError = {
@@ -23,7 +22,11 @@ function ResetPasswordPageContent() {
     setMessage(null);
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/update-password`,
+      });
+
+      if (error) throw error;
       
       setMessage("Check your email for a password reset link");
     } catch (error: unknown) {

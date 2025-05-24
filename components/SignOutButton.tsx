@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, LogOut } from "lucide-react";
-import { logOut } from "@/lib/firebase";
+import { auth, logOut } from "@/lib/firebase";
 
 type SignOutButtonProps = {
   variant?: "default" | "minimal" | "icon";
@@ -24,8 +24,9 @@ export default function SignOutButton({
   const handleSignOut = async () => {
     setLoading(true);
     try {
+      // Sign out using Firebase
       await logOut();
-
+      
       if (onSignOut) {
         await onSignOut();
       }
