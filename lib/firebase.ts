@@ -7,19 +7,34 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   UserCredential,
-  getIdTokenResult,
   onAuthStateChanged,
-  User
+  User,
 } from "firebase/auth";
 import {
   getFirestore,
-  collection,
   doc,
   setDoc,
   getDoc,
   updateDoc,
   serverTimestamp,
+  FieldValue,
 } from "firebase/firestore";
+
+export interface UserProfile {
+  id: string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+  role?: string;
+  tts_enabled?: boolean;
+  voice_id?: string;
+  created_at?: FieldValue;
+  updated_at?: FieldValue;
+  address?: string | null;
+  gender?: string | null;
+  stt_enabled?: boolean;
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -39,7 +54,7 @@ const googleProvider = new GoogleAuthProvider();
 export const createUser = async (
   email: string,
   password: string,
-  userData: any
+  userData: Partial<UserProfile>
 ): Promise<UserCredential> => {
   const userCredential = await createUserWithEmailAndPassword(
     auth,
@@ -52,6 +67,7 @@ export const createUser = async (
     email,
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
+    role: userData.role || "user",
   });
 
   return userCredential;
@@ -66,49 +82,60 @@ export const signIn = async (
 
 export const signInWithGoogle = async (): Promise<UserCredential> => {
   const userCredential = await signInWithPopup(auth, googleProvider);
-  
-  // Check if this user already exists in our Firestore database
+
   const userExists = await checkUserExists(userCredential.user.uid);
-  
-  // If the user doesn't exist in Firestore, create a profile
+
   if (!userExists) {
     const { user } = userCredential;
     await createUserProfile(user.uid, {
       email: user.email,
-      first_name: user.displayName?.split(' ')[0] || '',
-      last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
+      first_name: user.displayName?.split(" ")[0] || "",
+      last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
       avatar_url: user.photoURL,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
+      role: "user",
     });
   }
-  
+
   return userCredential;
 };
 
 export const logOut = async (): Promise<void> => {
   await signOut(auth);
-  
+
   try {
-    await fetch('/api/auth/signout', {
-      method: 'POST',
-      credentials: 'same-origin',
+    await fetch("/api/auth/signout", {
+      method: "POST",
+      credentials: "same-origin",
     });
   } catch (error) {
-    console.error('Error clearing server session:', error);
+    console.error("Error clearing server session:", error);
   }
 };
 
 export const createUserProfile = async (
   userId: string,
-  data: any
+  data: Partial<UserProfile>
 ): Promise<void> => {
   const userRef = doc(db, "users", userId);
-  await setDoc(userRef, {
-    ...data,
+  const profileData: UserProfile = {
     id: userId,
-    role: "user",
-  });
+    email: data.email !== undefined ? data.email : null,
+    first_name: data.first_name !== undefined ? data.first_name : "",
+    last_name: data.last_name !== undefined ? data.last_name : "",
+    avatar_url: data.avatar_url !== undefined ? data.avatar_url : null,
+    role: data.role || "user",
+    tts_enabled: data.tts_enabled || false,
+    voice_id: data.voice_id || "",
+    address: data.address !== undefined ? data.address : null,
+    gender: data.gender !== undefined ? data.gender : null,
+    stt_enabled: data.stt_enabled || false,
+    created_at: data.created_at || serverTimestamp(),
+    updated_at: data.updated_at || serverTimestamp(),
+    ...data,
+  };
+  await setDoc(userRef, profileData);
 };
 
 export const checkUserExists = async (userId: string): Promise<boolean> => {
@@ -117,12 +144,14 @@ export const checkUserExists = async (userId: string): Promise<boolean> => {
   return userSnap.exists();
 };
 
-export const getUserProfile = async (userId: string): Promise<any> => {
+export const getUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
   const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
-    return userSnap.data();
+    return { id: userSnap.id, ...userSnap.data() } as UserProfile;
   }
 
   return null;
@@ -130,7 +159,7 @@ export const getUserProfile = async (userId: string): Promise<any> => {
 
 export const updateUserProfile = async (
   userId: string,
-  data: any
+  data: Partial<UserProfile>
 ): Promise<void> => {
   const userRef = doc(db, "users", userId);
   await updateDoc(userRef, {
@@ -144,28 +173,23 @@ export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
   return profile?.role === "admin";
 };
 
-// Initialize auth state listener to ensure users are always added to Firestore
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       try {
-        // Check if user exists in Firestore
         const exists = await checkUserExists(user.uid);
-        
-        // If not, create a profile
+
         if (!exists) {
           await createUserProfile(user.uid, {
             email: user.email,
-            first_name: user.displayName?.split(' ')[0] || '',
-            last_name: user.displayName?.split(' ').slice(1).join(' ') || '',
+            first_name: user.displayName?.split(" ")[0] || "",
+            last_name: user.displayName?.split(" ").slice(1).join(" ") || "",
             avatar_url: user.photoURL,
-            created_at: serverTimestamp(),
-            updated_at: serverTimestamp(),
           });
           console.log(`Created new user profile for ${user.email}`);
         }
       } catch (error) {
-        console.error('Error ensuring user exists in Firestore:', error);
+        console.error("Error ensuring user exists in Firestore:", error);
       }
     }
   });

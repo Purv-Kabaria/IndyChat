@@ -11,6 +11,7 @@ import SignOutButton from "@/components/SignOutButton";
 import { auth, getUserProfile, updateUserProfile } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
+import { FieldValue, Timestamp } from "firebase/firestore";
 
 type UserProfile = {
   id: string;
@@ -18,11 +19,13 @@ type UserProfile = {
   first_name: string;
   last_name: string;
   avatar_url: string | null;
-  address: string | null;
-  gender: string | null;
+  address?: string | null;
+  gender?: string | null;
   tts_enabled?: boolean;
   stt_enabled?: boolean;
-  created_at?: string;
+  created_at?: string | FieldValue | Timestamp;
+  role?: string;
+  voice_id?: string;
 };
 
 export default function ProfilePage() {
@@ -62,7 +65,6 @@ export default function ProfilePage() {
             if (!profileData) {
               console.log("No profile found for user, creating basic one");
               
-              // Initialize with basic data if profile doesn't exist
               const userProfile: UserProfile = {
                 id: user.uid,
                 email: user.email || "",
@@ -73,7 +75,8 @@ export default function ProfilePage() {
                 gender: null,
                 tts_enabled: false,
                 stt_enabled: false,
-                created_at: user.metadata.creationTime
+                created_at: user.metadata.creationTime,
+                role: "user"
               };
               
               // Create a profile in Firestore
@@ -82,7 +85,11 @@ export default function ProfilePage() {
                 first_name: userProfile.first_name,
                 last_name: userProfile.last_name,
                 avatar_url: userProfile.avatar_url,
-                updated_at: new Date().toISOString()
+                role: userProfile.role,
+                tts_enabled: userProfile.tts_enabled,
+                stt_enabled: userProfile.stt_enabled,
+                address: userProfile.address,
+                gender: userProfile.gender,
               });
               
               setProfile(userProfile);
@@ -101,7 +108,9 @@ export default function ProfilePage() {
                 gender: profileData.gender || null,
                 tts_enabled: profileData.tts_enabled || false,
                 stt_enabled: profileData.stt_enabled || false,
-                created_at: profileData.created_at
+                created_at: profileData.created_at,
+                role: profileData.role,
+                voice_id: profileData.voice_id
               };
               
               setProfile(userProfile);
@@ -115,14 +124,17 @@ export default function ProfilePage() {
             }
             
             // Format creation date
-            if (user.metadata.creationTime) {
-              const date = new Date(user.metadata.creationTime);
-              setCreatedAt(date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              }));
+            let creationTimeString: string | undefined = undefined;
+            if (profileData?.created_at && typeof profileData.created_at === 'object' && 'toDate' in profileData.created_at) {
+              creationTimeString = (profileData.created_at as unknown as { toDate: () => Date }).toDate().toLocaleDateString('en-US', { 
+                year: 'numeric', month: 'long', day: 'numeric' 
+              });
+            } else if (user.metadata.creationTime) {
+              creationTimeString = new Date(user.metadata.creationTime).toLocaleDateString('en-US', { 
+                year: 'numeric', month: 'long', day: 'numeric' 
+              });
             }
+            if (creationTimeString) setCreatedAt(creationTimeString);
           } catch (error) {
             console.error("Error fetching profile:", error);
             setError("Failed to load profile");
@@ -203,7 +215,6 @@ export default function ProfilePage() {
         avatar_url: newAvatarUrl || null,
         tts_enabled: ttsEnabled,
         stt_enabled: sttEnabled,
-        updated_at: new Date().toISOString()
       });
       
       setSuccess("Profile updated successfully");
@@ -216,11 +227,9 @@ export default function ProfilePage() {
             ...prev,
             first_name: firstName,
             last_name: lastName,
-            address,
-            gender,
             avatar_url: newAvatarUrl || null,
             tts_enabled: ttsEnabled,
-            stt_enabled: sttEnabled
+            stt_enabled: sttEnabled,
           };
         }
         return prev;

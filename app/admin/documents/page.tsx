@@ -25,7 +25,7 @@ type Document = {
 };
 
 const DIFY_API_URL =
-  process.env.DIFY_API_URL || "https://api.dify.ai/v1";
+  process.env.NEXT_PUBLIC_DIFY_API_URL || "https://api.dify.ai/v1";
 const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_KNOWLEDGE_BASE_API_KEY || "";
 const DIFY_DATASET_ID = process.env.NEXT_PUBLIC_DIFY_DATASET_ID || "";
 

@@ -1,8 +1,20 @@
 import { cookies } from 'next/headers';
 import { Complaint } from './complaints';
 import { adminAuth, adminDb } from '../app/api/auth/firebase-admin';
-import { collection, query, where, orderBy, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
+
+// Define a type for the enriched complaint data for admins
+interface EnrichedComplaint extends Complaint {
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  } | null;
+  assigned_profiles?: {
+    first_name?: string;
+    last_name?: string;
+  } | null;
+}
 
 /**
  * Server-side function to get complaints (for server components)
@@ -37,7 +49,7 @@ export async function getComplaintsServer() {
       const complaintsRef = adminDb.collection('complaints');
       const complaintsSnap = await complaintsRef.orderBy('created_at', 'desc').get();
       
-      const complaints: any[] = [];
+      const complaints: EnrichedComplaint[] = [];
       
       for (const doc of complaintsSnap.docs) {
         const data = doc.data();
@@ -68,7 +80,7 @@ export async function getComplaintsServer() {
         
         complaints.push({
           id: doc.id,
-          ...data,
+          ...(data as Complaint),
           created_at: data.created_at ? data.created_at.toDate().toISOString() : undefined,
           updated_at: data.updated_at ? data.updated_at.toDate().toISOString() : undefined,
           profiles: userProfileData ? {
@@ -92,13 +104,13 @@ export async function getComplaintsServer() {
         .orderBy('created_at', 'desc')
         .get();
       
-      const complaints: any[] = [];
+      const complaints: Complaint[] = [];
       
-      complaintsSnap.forEach((doc: any) => {
+      complaintsSnap.forEach((doc) => {
         const data = doc.data();
         complaints.push({
           id: doc.id,
-          ...data,
+          ...(data as Complaint),
           created_at: data.created_at ? data.created_at.toDate().toISOString() : undefined,
           updated_at: data.updated_at ? data.updated_at.toDate().toISOString() : undefined,
         });

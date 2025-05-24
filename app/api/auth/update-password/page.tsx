@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useRouter, useSearchParams } from "next/navigation";
+import { auth } from "@/lib/firebase";
+import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 
 type AuthError = {
@@ -10,43 +11,58 @@ type AuthError = {
   code?: string;
 };
 
-type SessionData = {
-  session: {
-    user: {
-      id: string;
-    };
-  } | null;
-};
-
 function UpdatePasswordPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [oobCode, setOobCode] = useState<string | null>(null);
+  const [emailForReset, setEmailForReset] = useState<string | null>(null);
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession() as { 
-        data: SessionData 
-      };
-      if (!data.session) {
-        router.push("/login?message=Your password reset link has expired");
-      }
-    };
-    
-    checkSession();
-  }, [router]);
+    const code = searchParams.get("oobCode");
+    if (code) {
+      setOobCode(code);
+      verifyPasswordResetCode(auth, code)
+        .then((email) => {
+          setEmailForReset(email);
+          setMessage(`Updating password for ${email}. Please enter your new password.`);
+          setError(null);
+        })
+        .catch((err) => {
+          console.error("Firebase verifyPasswordResetCode error:", err);
+          let friendlyMessage = "Invalid or expired password reset link.";
+          if (err.code === "auth/invalid-action-code") {
+            friendlyMessage = "The password reset link is invalid or has expired. Please request a new one.";
+          }
+          setError(friendlyMessage);
+          setMessage(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setError("No password reset code found. Please use the link from your email.");
+      setLoading(false);
+    }
+  }, [searchParams, router]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!oobCode) {
+      setError("Password reset code is missing. Cannot update password.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
@@ -60,32 +76,48 @@ function UpdatePasswordPageContent() {
     }
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password,
-      });
-
-      if (error) throw error;
-      
-      setMessage("Password updated successfully");
-      
-      
+      await confirmPasswordReset(auth, oobCode, password);
+      setMessage("Password updated successfully! Redirecting to login...");
       setTimeout(() => {
-        router.push("/login?message=Password updated successfully");
-      }, 2000);
-    } catch (error: unknown) {
-      const authError = error as AuthError;
-      setError(authError.message || "An error occurred");
+        router.push("/login?message=Password updated successfully. You can now log in.");
+      }, 3000);
+    } catch (err: unknown) {
+      const authError = err as AuthError;
+      console.error("Firebase confirmPasswordReset error:", authError);
+      let friendlyMessage = authError.message || "An error occurred while updating your password.";
+      if (authError.code === "auth/invalid-action-code") {
+        friendlyMessage = "The password reset link is invalid or has expired. Please try again.";
+      } else if (authError.code === "auth/user-disabled") {
+        friendlyMessage = "This user account has been disabled.";
+      }
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  if (loading && !emailForReset && !error) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
+        <div className="flex flex-col items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="mt-2 text-sm text-gray-500">Verifying password reset link...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-primary via-primary to-accent/10 px-4 sm:px-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-cal font-bold text-accent">Update Password</h1>
-          <p className="text-sm text-gray-500 mt-2">Create a new password for your account</p>
+          {emailForReset && !error && (
+             <p className="text-sm text-gray-500 mt-2">Create a new password for {emailForReset}</p>
+          )}
+          {!emailForReset && !error && !loading && (
+             <p className="text-sm text-gray-500 mt-2">Enter your new password</p>
+          )}
         </div>
 
         {error && (
@@ -142,7 +174,6 @@ function UpdatePasswordPageContent() {
     </div>
   );
 }
-
 
 function UpdatePasswordPageFallback() {
   return (

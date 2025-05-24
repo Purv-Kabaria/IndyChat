@@ -11,7 +11,8 @@ import {
   getDoc, 
   serverTimestamp, 
   Timestamp,
-  deleteDoc
+  deleteDoc,
+  FieldValue
 } from 'firebase/firestore';
 import { getUserProfile } from '@/lib/firebase';
 
@@ -32,6 +33,20 @@ export interface Complaint {
   resolved_at?: string | null;
   resolution_notes?: string | null;
   assigned_to?: string | null;
+}
+
+// Define a type for the enriched complaint data for admins (similar to complaints-server.ts)
+interface EnrichedComplaint extends Complaint {
+  profiles?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+  } | null;
+  assigned_profiles?: {
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  // Consider if other user profile fields are needed here
 }
 
 /**
@@ -136,7 +151,7 @@ export async function getAllComplaints() {
     const q = query(complaintsRef, orderBy('created_at', 'desc'));
     
     const querySnapshot = await getDocs(q);
-    const complaints: any[] = [];
+    const complaints: EnrichedComplaint[] = [];
     
     // Get all complaints
     for (const doc of querySnapshot.docs) {
@@ -162,7 +177,7 @@ export async function getAllComplaints() {
       
       complaints.push({
         id: doc.id,
-        ...data,
+        ...(data as Complaint),
         created_at: data.created_at ? (data.created_at as Timestamp).toDate().toISOString() : undefined,
         updated_at: data.updated_at ? (data.updated_at as Timestamp).toDate().toISOString() : undefined,
         profiles: userProfileData ? {
@@ -209,7 +224,7 @@ export async function updateComplaintStatus(
     
     const updateData: {
       status: ComplaintStatus;
-      updated_at: any;
+      updated_at: FieldValue;
       resolved_at?: string;
       resolution_notes?: string;
       priority?: ComplaintPriority;

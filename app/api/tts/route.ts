@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { adminAuth, adminDb } from "@/app/api/auth/firebase-admin";
 import { DEFAULT_VOICE_ID } from "@/functions/ttsUtils";
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
@@ -15,19 +15,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const authorizationHeader = request.headers.get("Authorization");
+    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized: No token provided" }, { status: 401 });
+    }
+    const idToken = authorizationHeader.split("Bearer ")[1];
 
-    if (userError || !user) {
-      console.error("Auth error:", userError);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken);
+    } catch (tokenError) {
+      console.error("Token verification error:", tokenError);
+      return NextResponse.json({ error: "Unauthorized: Invalid token" }, { status: 401 });
     }
 
-    const ttsEnabled = user.user_metadata?.tts_enabled || false;
+    const uid = decodedToken.uid;
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized: UID not found in token" }, { status: 401 });
+    }
 
+    const userDocRef = adminDb.collection("users").doc(uid);
+    const userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+      console.error("User not found in Firestore:", uid);
+      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+    }
+
+    const userData = userDoc.data();
+    if (!userData) {
+        return NextResponse.json({ error: "User data is empty" }, { status: 404 });
+    }
+
+    const ttsEnabled = userData.tts_enabled === true;
     if (!ttsEnabled) {
       return NextResponse.json(
         { error: "Text-to-speech is not enabled for this user" },
@@ -44,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const voiceId =
-      body.voiceId || user.user_metadata?.voice_id || DEFAULT_VOICE_ID;
+      body.voiceId || userData.voice_id || DEFAULT_VOICE_ID;
 
     const response = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
       method: "POST",
