@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { adminAuth, adminDb } from "@/app/api/auth/firebase-admin";
 import { DEFAULT_VOICE_ID } from "@/functions/ttsUtils";
 
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+interface UserProfile {
+  tts_enabled?: boolean;
+  voice_id?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-
     if (!apiKey) {
       return NextResponse.json(
         { error: "ElevenLabs API key not configured" },
@@ -15,18 +19,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("Auth error:", userError);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Firebase Authentication: Verify ID Token from Authorization header
+    const authorizationHeader = request.headers.get("Authorization");
+    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized: Missing or malformed Authorization header" }, { status: 401 });
+    }
+    const idToken = authorizationHeader.split("Bearer ")[1];
+    if (!idToken) {
+      return NextResponse.json({ error: "Unauthorized: Missing token" }, { status: 401 });
     }
 
-    const ttsEnabled = user.user_metadata?.tts_enabled || false;
+    let decodedClaims;
+    try {
+      decodedClaims = await adminAuth.verifyIdToken(idToken, true /** checkRevoked */);
+    } catch (authError) {
+      console.error("Firebase auth error (ID token verification):", authError);
+      return NextResponse.json({ error: "Unauthorized: Invalid ID token" }, { status: 401 });
+    }
+
+    const userId = decodedClaims.uid;
+
+    // Fetch user profile from Firestore to get TTS settings
+    const userProfileRef = adminDb.collection("users").doc(userId);
+    const userProfileSnap = await userProfileRef.get();
+
+    if (!userProfileSnap.exists) {
+      console.error(`User profile not found for UID: ${userId}`);
+      return NextResponse.json({ error: "User profile not found" }, { status: 403 });
+    }
+
+    const userProfile = userProfileSnap.data() as UserProfile;
+    const ttsEnabled = userProfile?.tts_enabled || false;
 
     if (!ttsEnabled) {
       return NextResponse.json(
@@ -36,7 +59,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
     const { text } = body;
 
     if (!text) {
@@ -44,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     const voiceId =
-      body.voiceId || user.user_metadata?.voice_id || DEFAULT_VOICE_ID;
+      body.voiceId || userProfile?.voice_id || DEFAULT_VOICE_ID;
 
     const response = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
       method: "POST",
@@ -64,9 +86,9 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("ElevenLabs API error:", errorData);
+      console.error("ElevenLabs API error:", response.status, errorData);
       return NextResponse.json(
-        { error: "Failed to generate speech" },
+        { error: "Failed to generate speech", details: errorData },
         { status: response.status }
       );
     }

@@ -10,20 +10,9 @@ import { testTextToSpeech } from "@/functions/ttsUtils";
 import SignOutButton from "@/components/SignOutButton";
 import { auth, getUserProfile, updateUserProfile } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { onAuthStateChanged } from "firebase/auth";
-
-type UserProfile = {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
-  address: string | null;
-  gender: string | null;
-  tts_enabled?: boolean;
-  stt_enabled?: boolean;
-  created_at?: string;
-};
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { UserProfile } from "@/lib/auth-context";
+import { Timestamp } from 'firebase/firestore';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -49,21 +38,19 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
           if (!user) {
             router.push("/login?message=Please log in to view your profile");
             return;
           }
           
           try {
-            // Get the user's profile from Firestore
             const profileData = await getUserProfile(user.uid);
             
             if (!profileData) {
               console.log("No profile found for user, creating basic one");
               
-              // Initialize with basic data if profile doesn't exist
-              const userProfile: UserProfile = {
+              const initialProfile: UserProfile = {
                 id: user.uid,
                 email: user.email || "",
                 first_name: user.displayName?.split(' ')[0] || "",
@@ -73,27 +60,27 @@ export default function ProfilePage() {
                 gender: null,
                 tts_enabled: false,
                 stt_enabled: false,
-                created_at: user.metadata.creationTime
               };
               
-              // Create a profile in Firestore
               await updateUserProfile(user.uid, {
-                email: userProfile.email,
-                first_name: userProfile.first_name,
-                last_name: userProfile.last_name,
-                avatar_url: userProfile.avatar_url,
+                ...initialProfile,
                 updated_at: new Date().toISOString()
               });
               
-              setProfile(userProfile);
-              setFirstName(userProfile.first_name);
-              setLastName(userProfile.last_name);
-              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
+              setProfile(initialProfile);
+              setFirstName(initialProfile.first_name || "");
+              setLastName(initialProfile.last_name || "");
+              setAvatarUrl(initialProfile.avatar_url !== undefined ? initialProfile.avatar_url : null);
+              setAddress(initialProfile.address || "");
+              setGender(initialProfile.gender || "");
+              setTtsEnabled(initialProfile.tts_enabled || false);
+              setSttEnabled(initialProfile.stt_enabled || false);
+
             } else {
-              // Use existing profile data
-              const userProfile: UserProfile = {
+              const existingProfile: UserProfile = {
+                ...profileData,
                 id: user.uid,
-                email: user.email || "",
+                email: user.email || profileData.email || "",
                 first_name: profileData.first_name || "",
                 last_name: profileData.last_name || "",
                 avatar_url: profileData.avatar_url || null,
@@ -101,28 +88,38 @@ export default function ProfilePage() {
                 gender: profileData.gender || null,
                 tts_enabled: profileData.tts_enabled || false,
                 stt_enabled: profileData.stt_enabled || false,
-                created_at: profileData.created_at
               };
               
-              setProfile(userProfile);
-              setFirstName(userProfile.first_name);
-              setLastName(userProfile.last_name);
-              setAddress(userProfile.address || "");
-              setGender(userProfile.gender || "");
-              setAvatarUrl(userProfile.avatar_url !== undefined ? userProfile.avatar_url : null);
-              setTtsEnabled(userProfile.tts_enabled || false);
-              setSttEnabled(userProfile.stt_enabled || false);
+              setProfile(existingProfile);
+              setFirstName(existingProfile.first_name || "");
+              setLastName(existingProfile.last_name || "");
+              setAddress(existingProfile.address || "");
+              setGender(existingProfile.gender || "");
+              setAvatarUrl(existingProfile.avatar_url || null);
+              setTtsEnabled(existingProfile.tts_enabled || false);
+              setSttEnabled(existingProfile.stt_enabled || false);
+
+              const creationTimestamp: Timestamp | string | null | undefined = profileData.created_at;
+              if (creationTimestamp) {
+                const date = (creationTimestamp instanceof Timestamp) 
+                  ? creationTimestamp.toDate() 
+                  : new Date(creationTimestamp as string);
+                setCreatedAt(date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+              } else if (user.metadata.creationTime) {
+                const date = new Date(user.metadata.creationTime);
+                setCreatedAt(date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+              }
             }
             
-            // Format creation date
-            if (user.metadata.creationTime) {
-              const date = new Date(user.metadata.creationTime);
-              setCreatedAt(date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              }));
+            if (!createdAt && user.metadata.creationTime) {
+                 const date = new Date(user.metadata.creationTime);
+                 setCreatedAt(date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                 }));
             }
+
           } catch (error) {
             console.error("Error fetching profile:", error);
             setError("Failed to load profile");
@@ -140,7 +137,7 @@ export default function ProfilePage() {
     };
     
     fetchUserProfile();
-  }, [router]);
+  }, [router, createdAt]);
   
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

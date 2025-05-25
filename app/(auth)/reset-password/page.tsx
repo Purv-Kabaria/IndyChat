@@ -2,12 +2,9 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { auth } from "@/lib/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { Loader2 } from "lucide-react";
-
-type AuthError = {
-  message: string;
-};
 
 function ResetPasswordPageContent() {
   const [email, setEmail] = useState("");
@@ -22,15 +19,15 @@ function ResetPasswordPageContent() {
     setMessage(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/login?resetPassword=true&email=${encodeURIComponent(email)}`,
+        handleCodeInApp: true,
       });
-
-      if (error) throw error;
       
       setMessage("Check your email for a password reset link");
-    } catch (error: unknown) {
-      setError((error as AuthError).message || "An error occurred");
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string; message?: string };
+      setError(firebaseError.message || "An error occurred sending the reset email.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +65,7 @@ function ResetPasswordPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               required
+              autoComplete="email"
             />
           </div>
 

@@ -16,10 +16,10 @@ import {
   getAllComplaints,
   updateComplaintStatus,
   deleteComplaint,
-  Complaint,
   ComplaintStatus,
   ComplaintPriority,
-} from "@/lib/complaints";
+} from "@/functions/complaintUtils";
+import { Complaint as ComplaintBaseType } from "@/functions/complaintUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 
-type ExtendedComplaint = Complaint & {
+type ExtendedComplaint = ComplaintBaseType & {
   profiles?: {
     first_name: string;
     last_name: string;

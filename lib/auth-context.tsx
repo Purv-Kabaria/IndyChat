@@ -3,10 +3,27 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, getUserProfile } from './firebase';
+import { Timestamp } from 'firebase/firestore';
+
+export interface UserProfile {
+  id?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  role?: 'user' | 'admin' | string;
+  tts_enabled?: boolean;
+  voice_id?: string;
+  avatar_url?: string | null;
+  created_at?: Timestamp | string | null;
+  updated_at?: Timestamp | string | null;
+  address?: string | null;
+  gender?: string | null;
+  stt_enabled?: boolean;
+}
 
 type AuthContextType = {
   user: User | null;
-  userProfile: any | null;
+  userProfile: UserProfile | null;
   loading: boolean;
 };
 
@@ -20,7 +37,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // Use UserProfile type
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,7 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(user);
       
       if (user) {
-        // Fetch the user's profile data from Firestore
         try {
           const profileData = await getUserProfile(user.uid);
           setUserProfile(profileData);

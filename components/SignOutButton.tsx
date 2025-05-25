@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, LogOut } from "lucide-react";
-import { auth, logOut } from "@/lib/firebase";
+import { logOut } from "@/lib/firebase";
 
 type SignOutButtonProps = {
   variant?: "default" | "minimal" | "icon";
