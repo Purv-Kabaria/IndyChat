@@ -240,20 +240,22 @@ export default function ComplaintsAdminPage() {
 
   const handleDeleteComplaint = async () => {
     if (!selectedComplaint || !selectedComplaint.id) return;
-    
+
     setDeleting(true);
-    
+
     try {
       await deleteComplaint(selectedComplaint.id);
-      
+
       // Remove the deleted complaint from the state
-      setComplaints(complaints.filter(complaint => complaint.id !== selectedComplaint.id));
-      
+      setComplaints(
+        complaints.filter((complaint) => complaint.id !== selectedComplaint.id)
+      );
+
       toast({
         title: "Complaint deleted",
         description: "The complaint has been permanently deleted.",
       });
-      
+
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting complaint:", error);
@@ -370,7 +372,9 @@ export default function ComplaintsAdminPage() {
           </p>
         </div>
         <Link href="/admin">
-          <Button variant="outline" className="mt-2 md:mt-0">
+          <Button
+            variant="outline"
+            className="mt-2 md:mt-0 hover:bg-accent hover:text-white">
             Back to Admin Dashboard
           </Button>
         </Link>
@@ -568,7 +572,9 @@ export default function ComplaintsAdminPage() {
                               (complaint.status as ComplaintStatus) || "open"
                             );
                             setNewPriority(complaint.priority || "medium");
-                            setResolutionNotes(complaint.resolution_notes || "");
+                            setResolutionNotes(
+                              complaint.resolution_notes || ""
+                            );
                             setUpdateDialogOpen(true);
                           }}
                           className="hover:bg-accent/10">
@@ -770,14 +776,16 @@ export default function ComplaintsAdminPage() {
               Delete Complaint
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the complaint
-              and remove it from our servers.
+              This action cannot be undone. This will permanently delete the
+              complaint and remove it from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           {selectedComplaint && (
             <div className="bg-gray-50 p-4 rounded-md border border-gray-200 my-4">
-              <p className="font-medium text-gray-800">{selectedComplaint.subject}</p>
+              <p className="font-medium text-gray-800">
+                {selectedComplaint.subject}
+              </p>
               <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                 {selectedComplaint.description}
               </p>
@@ -787,23 +795,25 @@ export default function ComplaintsAdminPage() {
                 </Badge>
                 {selectedComplaint.profiles && (
                   <span className="text-xs text-gray-500">
-                    by {selectedComplaint.profiles.first_name} {selectedComplaint.profiles.last_name}
+                    by {selectedComplaint.profiles.first_name}{" "}
+                    {selectedComplaint.profiles.last_name}
                   </span>
                 )}
               </div>
             </div>
           )}
-          
+
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-50">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
               onClick={(e) => {
                 e.preventDefault();
                 handleDeleteComplaint();
               }}
-              disabled={deleting}
-            >
+              disabled={deleting}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

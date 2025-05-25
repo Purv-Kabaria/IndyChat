@@ -54,7 +54,11 @@ export default function NewsPage() {
               News management functionality will be implemented here.
             </p>
             <Link href="/admin">
-              <Button variant="outline">Back to Admin Dashboard</Button>
+              <Button
+                variant="outline"
+                className="hover:bg-accent hover:text-white">
+                Back to Admin Dashboard
+              </Button>
             </Link>
           </div>
         </div>
