@@ -81,7 +81,7 @@ export default function ChatSidebar({
         </Link>
         
         {userRole === 'admin' && (
-          <Link href="/admin">
+          <Link href="/admin/users">
             <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <span>Admin Panel</span>

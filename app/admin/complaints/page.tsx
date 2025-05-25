@@ -371,7 +371,7 @@ export default function ComplaintsAdminPage() {
             Manage user complaints, reports, and feedback.
           </p>
         </div>
-        <Link href="/admin">
+        <Link href="/admin/users">
           <Button
             variant="outline"
             className="mt-2 md:mt-0 hover:bg-accent hover:text-white">

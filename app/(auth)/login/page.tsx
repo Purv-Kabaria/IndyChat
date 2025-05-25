@@ -48,7 +48,7 @@ function LoginPageContent() {
       }
       
       if (profile.role === 'admin') {
-        router.push("/admin");
+        router.push("/admin/users");
         return;
       }
       

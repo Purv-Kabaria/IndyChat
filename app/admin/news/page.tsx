@@ -53,7 +53,7 @@ export default function NewsPage() {
             <p className="mb-4">
               News management functionality will be implemented here.
             </p>
-            <Link href="/admin">
+            <Link href="/admin/users">
               <Button
                 variant="outline"
                 className="hover:bg-accent hover:text-white">

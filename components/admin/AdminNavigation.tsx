@@ -22,7 +22,7 @@ export default function AdminNavigation() {
   const navItems = [
     {
       name: "Users",
-      href: "/admin",
+      href: "/admin/users",
       icon: Users,
     },
     {
