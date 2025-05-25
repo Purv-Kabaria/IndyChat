@@ -37,33 +37,6 @@ const cardHover = {
 };
 
 export default function AboutPage() {
-  const cityOfficials = [
-    {
-      name: "Mayor Joe Hogsett",
-      role: "Mayor of Indianapolis",
-      description:
-        "Leading city initiatives for digital transformation and citizen engagement.",
-      image: "/images/officials/mayor.png",
-      bioLink: "#",
-    },
-    {
-      name: "Dan Parker",
-      role: "Director of Public Works",
-      description:
-        "Overseeing city infrastructure and essential public services for a thriving community.",
-      image: "/images/officials/public-works.jpeg",
-      bioLink: "#",
-    },
-    {
-      name: "Dr. Virginia Caine",
-      role: "Marion County Public Health Director",
-      description:
-        "Dedicated to managing public health initiatives and ensuring community well-being.",
-      image: "/images/officials/health-director.jpeg",
-      bioLink: "#",
-    },
-  ];
-
   const chatbotFeatures = [
     {
       title: "24/7 Instant Access",
@@ -190,68 +163,6 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* City Leadership Section */}
-        <motion.section className="py-16 md:py-24 px-4 bg-gray-100">
-          <div className="max-w-6xl mx-auto">
-            <motion.h2
-              variants={fadeIn}
-              initial="initial"
-              whileInView="animate"
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold font-cal text-accent mb-16 text-center">
-              Meet Your City Leadership
-            </motion.h2>
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10"
-              variants={staggerContainer}
-              initial="initial"
-              whileInView="animate"
-              viewport={{ once: true }}>
-              {cityOfficials.map((official) => (
-                <motion.div
-                  key={official.name}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full group"
-                  variants={{ ...fadeIn, ...cardHover }}
-                  initial="initial"
-                  whileInView="animate"
-                  whileHover="hover"
-                  viewport={{ once: true }}>
-                  <div className="relative h-72 w-full overflow-hidden">
-                    <Image
-                      src={official.image}
-                      alt={official.name}
-                      layout="fill"
-                      objectFit="cover"
-                      className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                    />
-                  </div>
-                  <div className="p-6 flex flex-col flex-grow">
-                    <h3 className="text-2xl font-semibold text-accent mb-1">
-                      {official.name}
-                    </h3>
-                    <p className="text-accent font-medium mb-3">
-                      {official.role}
-                    </p>
-                    <p className="text-gray-600 text-sm leading-relaxed flex-grow">
-                      {official.description}
-                    </p>
-                    {official.bioLink && official.bioLink !== "#" && (
-                      <a
-                        href={official.bioLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-4 text-accent font-semibold hover:underline self-start text-sm">
-                        Learn More{" "}
-                        <ArrowRight className="inline h-4 w-4 ml-1" />
-                      </a>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </motion.section>
-
         {/* Chatbot Features Section */}
         <motion.section className="py-16 md:py-24 px-4 bg-white">
           <div className="max-w-5xl mx-auto">
@@ -278,7 +189,7 @@ export default function AboutPage() {
                   whileInView="animate"
                   whileHover="hover"
                   viewport={{ once: true }}>
-                  <div className="flex-shrink-0 p-3 bg-white rounded-full group-hover:bg-white/20 transition-colors duration-300">
+                  <div className="flex-shrink-0 p-3 bg-white rounded-full duration-300">
                     {feature.icon}
                   </div>
                   <div>
@@ -370,60 +281,6 @@ export default function AboutPage() {
                 className="bg-gray-200 text-accent px-8 py-3.5 rounded-lg text-md font-semibold hover:bg-gray-300 transition-colors duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
                 Provide Feedback
               </motion.a>
-            </motion.div>
-          </div>
-        </motion.section>
-
-        {/* Partnerships Section - Refined */}
-        <motion.section className="py-16 md:py-24 px-4 bg-gray-100">
-          <div className="max-w-6xl mx-auto text-center">
-            <motion.h2
-              variants={fadeIn}
-              initial="initial"
-              whileInView="animate"
-              viewport={{ once: true }}
-              className="text-3xl md:text-4xl font-bold font-cal text-accent mb-12">
-              Our Valued City Partners
-            </motion.h2>
-            <motion.div
-              className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8"
-              variants={staggerContainer}
-              initial="initial"
-              whileInView="animate"
-              viewport={{ once: true }}>
-              {[
-                {
-                  src: "/images/partners/city-seal.png",
-                  alt: "Indianapolis City Seal",
-                  height: "h-24",
-                  width: "w-24",
-                },
-                {
-                  src: "/images/partners/downtown-indy.jpeg",
-                  alt: "Downtown Indy Inc.",
-                  height: "h-20",
-                  width: "w-40",
-                },
-                {
-                  src: "/images/partners/indianapolis-public-library.png",
-                  alt: "Indianapolis Public Library",
-                  height: "h-20",
-                  width: "w-48",
-                },
-              ].map((partner) => (
-                <motion.div
-                  key={partner.alt}
-                  className={`relative ${partner.height} ${partner.width} opacity-70 hover:opacity-100 transition-opacity duration-300 ease-in-out filter grayscale hover:grayscale-0`}
-                  variants={fadeIn}
-                  title={partner.alt}>
-                  <Image
-                    src={partner.src}
-                    alt={partner.alt}
-                    layout="fill"
-                    objectFit="contain"
-                  />
-                </motion.div>
-              ))}
             </motion.div>
           </div>
         </motion.section>
