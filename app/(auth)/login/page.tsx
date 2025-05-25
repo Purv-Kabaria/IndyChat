@@ -30,30 +30,32 @@ function LoginPageContent() {
     setSuccess(null);
 
     try {
-      // Sign in with Firebase
       const userCredential = await signIn(email, password);
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        setError("Your email is not verified. Please check your inbox for a verification link or request a new one on the verification page.");
+        router.push(`/verify?email=${user.email}&message=Please verify your email to log in.`);
+        setLoading(false);
+        return;
+      }
       
-      // Get user profile from Firestore
-      const profile = await getUserProfile(userCredential.user.uid);
+      const profile = await getUserProfile(user.uid);
       
       if (!profile) {
-        // User doesn't have a profile yet, redirect to chat
         router.push("/chat");
         return;
       }
       
-      // Redirect based on role
       if (profile.role === 'admin') {
         router.push("/admin");
         return;
       }
       
-      // Default redirect to chat
       router.push("/chat");
     } catch (error: unknown) {
       const authError = error as AuthError;
       
-      // Handle specific Firebase auth errors
       if (authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password') {
         setError('Invalid email or password');
       } else if (authError.code === 'auth/invalid-email') {
@@ -76,7 +78,6 @@ function LoginPageContent() {
     
     try {
       await signInWithGoogle();
-      // Redirect will be handled in the auth state change listener
     } catch (error: unknown) {
       const authError = error as AuthError;
       setError(authError.message || "An error occurred with Google sign in");
@@ -184,7 +185,6 @@ function LoginPageContent() {
   );
 }
 
-// Loading fallback component
 function LoginPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">

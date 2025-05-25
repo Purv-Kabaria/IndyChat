@@ -28,6 +28,10 @@ function ChatPageContent() {
         router.push('/login?message=Please log in to access chat');
         return;
       }
+      if (!user.emailVerified) {
+        router.push(`/verify?email=${user.email}&message=Please verify your email to access the chat.`);
+        return;
+      }
     });
 
     return () => unsubscribe();

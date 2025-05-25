@@ -20,7 +20,7 @@ function ResetPasswordPageContent() {
 
     try {
       await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/login?resetPassword=true&email=${encodeURIComponent(email)}`,
+        url: `${window.location.origin}/auth/action`,
         handleCodeInApp: true,
       });
       

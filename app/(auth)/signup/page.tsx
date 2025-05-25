@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Loader2, Home } from "lucide-react";
 import Image from "next/image";
 import { createUser, signInWithGoogle, auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, sendEmailVerification } from "firebase/auth";
 
 type AuthError = {
   message: string;
@@ -23,67 +23,80 @@ function SignupPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
-  // Check if user is already authenticated
   useEffect(() => {
     const checkAuthStatus = async () => {
-      // Check for forceRedirect parameter
       const urlParams = new URLSearchParams(window.location.search);
-      const forceRedirect = urlParams.get("forceRedirect");
+      const forceRedirectQuery = urlParams.get("forceRedirect");
 
       try {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-          if (user && forceRedirect !== "false") {
-            // User is already signed in, redirect to chat
-            router.push("/chat");
-            return;
-          }
-          
           setSessionChecked(true);
+
+          if (user) {
+            if (user.emailVerified && isGoogleSigningIn && forceRedirectQuery !== "false") {
+              setIsGoogleSigningIn(false);
+              return;
+            }
+          } else {
+            setIsGoogleSigningIn(false);
+          }
         });
 
         return () => unsubscribe();
       } catch (err) {
         console.error("Unexpected error during session check:", err);
         setSessionChecked(true);
+        setIsGoogleSigningIn(false);
       }
     };
 
     checkAuthStatus();
-  }, [router]);
+  }, [router, isGoogleSigningIn, isSigningUp]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setIsSigningUp(true);
 
-    // Validation
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
+      setIsSigningUp(false);
       return;
     }
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       setLoading(false);
+      setIsSigningUp(false);
       return;
     }
 
     try {
-      // Create user with Firebase Auth and Firestore profile
       await createUser(email, password, {
         first_name: firstName,
         last_name: lastName,
-        role: "user", // Default role is "user", not admin
+        role: "user",
       });
 
-      // Redirect to chat page after successful signup
-      router.push("/chat");
+      if (auth.currentUser) {
+        const actionCodeSettings = {
+          url: `${window.location.origin}/auth/action?email=${encodeURIComponent(email)}`,
+          handleCodeInApp: true,
+        };
+        await sendEmailVerification(auth.currentUser, actionCodeSettings);
+        router.push(`/verify?email=${email}`);
+      } else {
+        console.error("Signup successful, but auth.currentUser is null before sending verification email.");
+        setError("Signup was successful, but couldn't send verification email. Please try logging in.");
+      }
     } catch (error: unknown) {
       console.error("Signup error:", error);
 
-      // Enhanced error reporting
       const authError = error as AuthError;
       
       if (authError.code === 'auth/email-already-in-use') {
@@ -99,20 +112,22 @@ function SignupPageContent() {
       }
     } finally {
       setLoading(false);
+      setIsSigningUp(false);
     }
   };
 
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError(null);
+    setIsGoogleSigningIn(true);
 
     try {
       await signInWithGoogle();
-      // Redirect will be handled by the auth state listener
     } catch (error: unknown) {
       console.error("Google sign in error:", error);
       const authError = error as AuthError;
       setError(authError.message || "An error occurred with Google sign in");
+      setIsGoogleSigningIn(false);
       setLoading(false);
     }
   };
@@ -261,7 +276,6 @@ function SignupPageContent() {
   );
 }
 
-// Loading fallback component
 function SignupPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">
