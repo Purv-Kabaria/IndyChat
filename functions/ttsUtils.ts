@@ -18,6 +18,7 @@ export const cleanTextForTTS = (text: string): string => {
 export const playTextToSpeech = async (
   text: string, 
   profile: UserProfile | null,
+  token: string,
   onStart: () => void,
   onComplete: () => void,
   onError: (error: any) => void
@@ -36,6 +37,7 @@ export const playTextToSpeech = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ 
         text: cleanText,
@@ -95,13 +97,14 @@ export const playTextToSpeech = async (
   }
 };
 
-export const testTextToSpeech = async (): Promise<void> => {
-  const testText = "This is a test of the ElevenLabs text-to-speech feature. Your voice settings are working correctly.";
+export const testTextToSpeech = async (token: string): Promise<void> => {
+  const testText = "Hello";
   
   const response = await fetch('/api/tts', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({ 
       text: testText,

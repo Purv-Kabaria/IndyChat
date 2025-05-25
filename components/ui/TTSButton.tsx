@@ -61,9 +61,26 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
     }
 
     try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("You must be logged in to use text-to-speech.");
+        // Optionally, trigger a login flow here
+        return;
+      }
+
+      let token;
+      try {
+        token = await currentUser.getIdToken(true); // Pass true to force refresh if needed
+      } catch (error) {
+        console.error("Error getting ID token:", error);
+        alert("Your session may have expired. Please try logging out and logging back in.");
+        return;
+      }
+
       const { audio, stop } = await playTextToSpeech(
         text,
         profile,
+        token, // Pass the token here
         () => setIsTtsLoading(true),
         () => {
           setIsPlaying(false);

@@ -34,6 +34,8 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [sttEnabled, setSttEnabled] = useState(false);
+  const [isTestingTTS, setIsTestingTTS] = useState(false);
+  const [lastTestTimestamp, setLastTestTimestamp] = useState<number | null>(null);
   
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -231,11 +233,42 @@ export default function ProfilePage() {
   };
 
   const testTTS = async () => {
+    const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+
+    if (lastTestTimestamp && (Date.now() - lastTestTimestamp < FIVE_MINUTES_IN_MS)) {
+      const timeLeft = FIVE_MINUTES_IN_MS - (Date.now() - lastTestTimestamp);
+      const minutesLeft = Math.ceil(timeLeft / (60 * 1000));
+      setError(`Please wait ~${minutesLeft} minute(s) before testing TTS again.`);
+      setSuccess(null);
+      return;
+    }
+
+    setIsTestingTTS(true);
+    setError(null);
+    setSuccess(null);
+
     try {
-      await testTextToSpeech();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("You must be logged in to test text-to-speech.");
+      }
+      let token;
+      try {
+        token = await currentUser.getIdToken(true);
+      } catch (tokenError) {
+        console.error("Error getting ID token for TTS test:", tokenError);
+        throw new Error("Your session may have expired. Please log out and log back in to test TTS.");
+      }
+      await testTextToSpeech(token);
+      setLastTestTimestamp(Date.now());
+      setSuccess("TTS test initiated! Listening for 'Hello'...");
+      setTimeout(() => setSuccess(null), 4000);
     } catch (error: unknown) {
       console.error("TTS test failed:", error);
-      setError(error instanceof Error ? error.message : "Text to speech test failed");
+      const errorMessage = error instanceof Error ? error.message : "Text to speech test failed";
+      setError(errorMessage);
+    } finally {
+      setIsTestingTTS(false);
     }
   };
 
@@ -475,11 +508,15 @@ export default function ProfilePage() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    className="mr-2"
+                    type="button"
+                    className="mr-2 bg-accent hover:bg-white text-white hover:text-accent"
                     onClick={testTTS}
-                    disabled={!ttsEnabled}
+                    disabled={!ttsEnabled || isTestingTTS}
                   >
-                    Test
+                    {isTestingTTS ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : null}
+                    {isTestingTTS ? "Testing..." : "Test"}
                   </Button>
                   <button
                     type="button"
