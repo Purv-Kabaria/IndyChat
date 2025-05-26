@@ -20,13 +20,11 @@ import {
   FieldValue,
   Timestamp,
   collection,
-  addDoc,
   query,
   where,
   orderBy,
   limit,
   getDocs,
-  writeBatch,
   deleteDoc,
   arrayUnion,
 } from "firebase/firestore";
@@ -205,9 +203,6 @@ if (typeof window !== "undefined") {
             user.uid,
             profileData as Partial<UserProfile>
           );
-          console.log(
-            `Created new user profile for ${user.email} in onAuthStateChanged`
-          );
         }
       } catch (error) {
         console.error(
@@ -230,11 +225,14 @@ interface FirestoreConversationData {
   id?: string;
 }
 
-const safeTimestampToDate = (timestamp: any): Date => {
-  if (timestamp && typeof timestamp.toDate === 'function') {
+const safeTimestampToDate = (timestamp: Timestamp | FieldValue | Date | null | undefined): Date => {
+  if (timestamp && typeof (timestamp as Timestamp).toDate === "function") {
     return (timestamp as Timestamp).toDate();
   }
-  return new Date(); 
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  return new Date();
 };
 
 export const createConversation = async (
@@ -291,7 +289,7 @@ export const addMessageToConversation = async (
 
 export const getConversationsForUser = async (
   user_id: string
-): Promise<Omit<Conversation, 'messages'>[]> => {
+): Promise<Omit<Conversation, "messages">[]> => {
   const q = query(
     collection(db, "conversations"),
     where("user_id", "==", user_id),
@@ -299,7 +297,7 @@ export const getConversationsForUser = async (
     limit(50)
   );
   const querySnapshot = await getDocs(q);
-  const conversations: Omit<Conversation, 'messages'>[] = [];
+  const conversations: Omit<Conversation, "messages">[] = [];
   querySnapshot.forEach((docSnap) => {
     const data = docSnap.data();
     conversations.push({
@@ -309,7 +307,7 @@ export const getConversationsForUser = async (
       difyConversationId: data.difyConversationId || undefined,
       createdAt: safeTimestampToDate(data.createdAt),
       updatedAt: safeTimestampToDate(data.updatedAt),
-    } as Omit<Conversation, 'messages'>);
+    } as Omit<Conversation, "messages">);
   });
   return conversations;
 };
@@ -322,10 +320,12 @@ export const getConversationWithMessages = async (
 
   if (docSnap.exists()) {
     const data = docSnap.data();
-    const messages: EmbeddedMessage[] = (data.messages || []).map((msg: any) => ({
-      ...msg,
-      date: safeTimestampToDate(msg.date),
-    }));
+    const messages: EmbeddedMessage[] = (data.messages || []).map(
+      (msg: Omit<EmbeddedMessage, 'date'> & { date?: Timestamp | Date | FieldValue }) => ({
+        ...msg,
+        date: safeTimestampToDate(msg.date),
+      })
+    );
 
     return {
       id: docSnap.id,

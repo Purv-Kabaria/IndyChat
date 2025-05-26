@@ -57,7 +57,7 @@ export default function ContactPage() {
             <motion.p
               className="text-xl md:text-2xl text-white/90"
               variants={fadeIn}>
-              We're here to help you navigate Indianapolis better
+              We&apos;re here to help you navigate Indianapolis better
             </motion.p>
           </div>
         </motion.section>
@@ -139,7 +139,9 @@ export default function ContactPage() {
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="name" className="block text-gray-700 mb-2 font-medium">
+                    <label
+                      htmlFor="name"
+                      className="block text-gray-700 mb-2 font-medium">
                       Name
                     </label>
                     <input
@@ -150,7 +152,9 @@ export default function ContactPage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="email" className="block text-gray-700 mb-2 font-medium">
+                    <label
+                      htmlFor="email"
+                      className="block text-gray-700 mb-2 font-medium">
                       Email
                     </label>
                     <input
@@ -163,7 +167,9 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="subject" className="block text-gray-700 mb-2 font-medium">
+                  <label
+                    htmlFor="subject"
+                    className="block text-gray-700 mb-2 font-medium">
                     Subject
                   </label>
                   <input
@@ -175,7 +181,9 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="message" className="block text-gray-700 mb-2 font-medium">
+                  <label
+                    htmlFor="message"
+                    className="block text-gray-700 mb-2 font-medium">
                     Message
                   </label>
                   <textarea

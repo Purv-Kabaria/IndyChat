@@ -86,7 +86,7 @@ export function STTButton({
       <button
         type="button"
         disabled
-        className={`text-xs flex items-center gap-1 text-muted-foreground/70 p-2 rounded-md cursor-not-allowed ${className}`}
+        className={`p-2 rounded-md text-muted-foreground/70 cursor-not-allowed flex items-center justify-center ${className}`}
         title="Voice input is disabled in your profile settings."
       >
         <MicOff className="h-5 w-5" />
@@ -99,7 +99,7 @@ export function STTButton({
       <button
         type="button"
         disabled
-        className={`text-xs flex items-center gap-1 text-red-500/70 p-2 rounded-md cursor-not-allowed ${className}`}
+        className={`p-2 rounded-md text-red-500/70 cursor-not-allowed flex items-center justify-center ${className}`}
         title="Speech recognition is not supported in your browser"
       >
         <AlertCircle className="h-5 w-5" />
@@ -113,11 +113,12 @@ export function STTButton({
         type="button"
         onClick={toggleListening}
         disabled={disabled}
-        className={`p-2 rounded-xl transition-colors 
+        className={`p-2 rounded-md transition-colors flex items-center justify-center 
           ${isRecording 
-            ? "text-red-500 hover:bg-red-500/10 animate-pulse" 
-            : "text-muted-foreground hover:text-foreground hover:bg-accent"}
-          ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
+            ? "text-red-500 bg-red-500/10 hover:bg-red-500/20 animate-pulse" 
+            : "text-muted-foreground hover:text-foreground hover:bg-accent hover:text-white"}
+          ${disabled ? "opacity-50 cursor-not-allowed" : ""} 
+          ${className}`}
         title={isRecording ? "Stop listening" : "Start voice input"}
       >
         {isRecording ? (

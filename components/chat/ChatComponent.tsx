@@ -9,11 +9,7 @@ import {
   Paperclip,
   X,
   File as FileIcon,
-  Volume2,
-  Mic,
-  MicOff,
   AlertCircle,
-  MessageSquare,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -23,24 +19,28 @@ import Image from "next/image";
 import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
-import { Message, UploadedFile, DifyFileParam, Conversation as ConversationType, EmbeddedMessage } from "@/types/chat";
+import {
+  Message,
+  UploadedFile,
+  DifyFileParam,
+  Conversation as ConversationType,
+} from "@/types/chat";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
-import { 
-  auth, 
-  updateUserProfile, 
-  createConversation, 
-  addMessageToConversation, 
-  getConversationsForUser, 
+import {
+  auth,
+  createConversation,
+  addMessageToConversation,
+  getConversationsForUser,
   getConversationWithMessages,
-  updateConversationDifyId
-} from '@/lib/firebase';
+  updateConversationDifyId,
+} from "@/lib/firebase";
 import ChatSidebar from "./ChatSidebar";
 import { ComplaintMessage } from "./ComplaintMessage";
 import { ComplaintType } from "@/functions/complaintUtils";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { UserRole } from '@/lib/auth-utils';
+import { onAuthStateChanged } from "firebase/auth";
+import { UserRole } from "@/lib/auth-utils";
 
 const messageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -57,17 +57,23 @@ const extractMessageContent = (content: string): string => {
       if (jsonContent.action_input) {
         return jsonContent.action_input;
       }
-    } catch {
-      // Ignore parsing errors if not valid JSON
-    }
+    } catch {}
   }
   return content;
 };
 
-function MessageContent({ content, onComplaintClick }: { content: string, onComplaintClick: () => void }) {
+function MessageContent({
+  content,
+  onComplaintClick,
+}: {
+  content: string;
+  onComplaintClick: () => void;
+}) {
   const hasComplaintButton = content.includes("<complaint button>");
-  const cleanContent = hasComplaintButton ? content.replace(/<complaint button>/g, "") : content;
-  
+  const cleanContent = hasComplaintButton
+    ? content.replace(/<complaint button>/g, "")
+    : content;
+
   return (
     <>
       <ReactMarkdown
@@ -87,24 +93,16 @@ function MessageContent({ content, onComplaintClick }: { content: string, onComp
               {children}
             </a>
           ),
-          p: ({
-            children,
-          }: React.HTMLProps<HTMLParagraphElement>) => (
+          p: ({ children }: React.HTMLProps<HTMLParagraphElement>) => (
             <p className="mb-3 last:mb-0">{children}</p>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside my-3 ml-2">
-              {children}
-            </ol>
+            <ol className="list-decimal list-inside my-3 ml-2">{children}</ol>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc list-inside my-3 ml-2">
-              {children}
-            </ul>
+            <ul className="list-disc list-inside my-3 ml-2">{children}</ul>
           ),
-          li: ({
-            children,
-          }: React.HTMLProps<HTMLLIElement>) => (
+          li: ({ children }: React.HTMLProps<HTMLLIElement>) => (
             <li className="mb-1">{children}</li>
           ),
           code: ({
@@ -115,9 +113,7 @@ function MessageContent({ content, onComplaintClick }: { content: string, onComp
           }: React.HTMLProps<HTMLElement> & {
             inline?: boolean;
           }) => {
-            const match = /language-(\w+)/.exec(
-              className || ""
-            );
+            const match = /language-(\w+)/.exec(className || "");
             const language = match?.[1];
             return !inline ? (
               <pre
@@ -143,14 +139,13 @@ function MessageContent({ content, onComplaintClick }: { content: string, onComp
         }}>
         {cleanContent}
       </ReactMarkdown>
-      
+
       {hasComplaintButton && (
         <div className="mt-3">
-          <Button 
+          <Button
             onClick={onComplaintClick}
             className="bg-accent hover:bg-accent/90 text-white"
-            size="sm"
-          >
+            size="sm">
             <AlertCircle className="w-4 h-4 mr-2" />
             File a Complaint
           </Button>
@@ -166,10 +161,13 @@ export default function ChatComponent() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const messageIdCounterRef = useRef(0);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [conversationsList, setConversationsList] = useState<Omit<ConversationType, 'messages'>[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(null);
+  const [conversationsList, setConversationsList] = useState<
+    Omit<ConversationType, "messages">[]
+  >([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [firebaseUserId, setFirebaseUserId] = useState<string | null>(null);
@@ -179,31 +177,28 @@ export default function ChatComponent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const hasInitializedRef = useRef(false);
-  const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
   const { profile, loading: profileLoading } = useUserProfile();
-  const [userRole, setUserRole] = useState<UserRole | 'guest' | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | "guest" | null>(null);
   const [showComplaintForm, setShowComplaintForm] = useState(false);
-  const [complaintType, setComplaintType] = useState<ComplaintType>('complaint');
-  const [difyConversationId, setDifyConversationId] = useState<string | null>(null);
+  const [complaintType, setComplaintType] =
+    useState<ComplaintType>("complaint");
+  const [difyConversationId, setDifyConversationId] = useState<string | null>(
+    null
+  );
 
-  const generateMessageId = () => {
+  const generateMessageId = useCallback(() => {
     const counter = messageIdCounterRef.current;
     messageIdCounterRef.current += 1;
     return `msg-${Date.now()}-${counter}`;
-  };
-
-  const generateDifyUserId = () => {
-    return `web-user-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 8)}`;
-  };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setFirebaseUserId(user.uid);
-        if (profile?.id) { 
+        setUserId(user.uid);
+        if (profile?.id) {
           setIsLoadingConversations(true);
           try {
             const convos = await getConversationsForUser(profile.id);
@@ -217,61 +212,64 @@ export default function ChatComponent() {
         }
       } else {
         setFirebaseUserId(null);
+        let guestDifyUserId = localStorage.getItem("difyGuestUserId");
+        if (!guestDifyUserId) {
+          guestDifyUserId = `guest-web-${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2, 10)}`;
+          localStorage.setItem("difyGuestUserId", guestDifyUserId);
+        }
+        setUserId(guestDifyUserId);
         setConversationsList([]);
-        setCurrentConversationId(null); 
+        setCurrentConversationId(null);
       }
     });
     return () => unsubscribe();
   }, [profile?.id]);
 
-  useEffect(() => {
-    if (!userId) {
-      setUserId(generateDifyUserId());
-    }
-  }, [userId]);
+  const handleSelectConversation = useCallback(
+    async (conversationIdToLoad: string) => {
+      if (!profile?.id) return;
+      setIsLoading(true);
+      setMessages([]);
+      setDifyConversationId(null);
+      try {
+        const conversation = await getConversationWithMessages(
+          conversationIdToLoad
+        );
+        if (conversation) {
+          setCurrentConversationId(conversation.id);
+          const loadedMessages: Message[] = conversation.messages.map(
+            (emsg) => ({
+              id: emsg.id,
+              role: emsg.role,
+              content: emsg.message,
+              timestamp: emsg.date,
+              attachedFiles: emsg.attachedFiles,
+            })
+          );
+          setMessages(loadedMessages);
 
-  const handleSelectConversation = useCallback(async (conversationIdToLoad: string) => {
-    if (!profile?.id) return;
-    console.log(`[ChatComponent] handleSelectConversation: Loading Firebase conv ID ${conversationIdToLoad}`);
-    setIsLoading(true);
-    setMessages([]);
-    setDifyConversationId(null);
-    try {
-      const conversation = await getConversationWithMessages(conversationIdToLoad);
-      if (conversation) {
-        setCurrentConversationId(conversation.id);
-        const loadedMessages: Message[] = conversation.messages.map(emsg => ({
-          id: emsg.id,
-          role: emsg.role,
-          content: emsg.message,
-          timestamp: emsg.date,
-          attachedFiles: emsg.attachedFiles,
-        }));
-        setMessages(loadedMessages);
-        
-        if (conversation.difyConversationId) {
-          setDifyConversationId(conversation.difyConversationId);
-          console.log(`[ChatComponent] handleSelectConversation: Loaded Dify ID ${conversation.difyConversationId} for Firebase conv ID ${conversation.id}`);
+          if (conversation.difyConversationId) {
+            setDifyConversationId(conversation.difyConversationId);
+          } else {
+            setDifyConversationId(null);
+          }
         } else {
+          setCurrentConversationId(null);
           setDifyConversationId(null);
-          console.log(`[ChatComponent] handleSelectConversation: No Dify ID found for Firebase conv ID ${conversation.id}. Setting to null.`);
         }
-        processedIframeMessagesRef.current.clear();
-
-      } else {
-        console.warn("[ChatComponent] handleSelectConversation: Could not load conversation:", conversationIdToLoad);
+      } catch (error) {
+        console.error("Error loading conversation:", error);
         setCurrentConversationId(null);
-        setDifyConversationId(null); 
+        setDifyConversationId(null);
+      } finally {
+        setIsLoading(false);
+        setSidebarOpen(false);
       }
-    } catch (error) {
-      console.error("Error loading conversation:", error);
-      setCurrentConversationId(null);
-      setDifyConversationId(null); 
-    } finally {
-      setIsLoading(false);
-      setSidebarOpen(false);
-    }
-  }, [profile?.id]);
+    },
+    [profile?.id]
+  );
 
   const startNewChat = useCallback(() => {
     setMessages([]);
@@ -288,16 +286,16 @@ export default function ChatComponent() {
       hasInitializedRef.current = true;
       const promptParam = searchParams.get("prompt");
       if (messages.length === 0 && promptParam) {
-          const initialUserMessage: Message = {
-            role: "user",
-            content: promptParam,
-            timestamp: new Date(),
-            id: generateMessageId(),
-          };
-          setMessages([initialUserMessage]);
+        const initialUserMessage: Message = {
+          role: "user",
+          content: promptParam,
+          timestamp: new Date(),
+          id: generateMessageId(),
+        };
+        setMessages([initialUserMessage]);
       }
     }
-  }, [searchParams, userId, messages.length]);
+  }, [searchParams, userId, messages.length, generateMessageId]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -312,7 +310,12 @@ export default function ChatComponent() {
   }, []);
 
   const handleSubmit = useCallback(
-    async (e?: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement> | React.KeyboardEvent<HTMLInputElement>) => {
+    async (
+      e?:
+        | React.FormEvent<HTMLFormElement>
+        | React.KeyboardEvent<HTMLTextAreaElement>
+        | React.KeyboardEvent<HTMLInputElement>
+    ) => {
       if (e) e.preventDefault();
 
       const trimmedInput = input.trim();
@@ -321,7 +324,8 @@ export default function ChatComponent() {
 
       // Complaint Intent Detection (restored)
       const complaintIntent = detectComplaintIntent(trimmedInput);
-      if (complaintIntent && complaintIntent !== null) { // Check if not null explicitly
+      if (complaintIntent && complaintIntent !== null) {
+        // Check if not null explicitly
         setIsLoading(true); // Show loading while preparing complaint UI
         const userMessageForComplaint: Message = {
           role: "user",
@@ -330,50 +334,79 @@ export default function ChatComponent() {
           id: generateMessageId(),
           attachedFiles: [...uploadedFiles],
         };
-        setMessages((prevMessages) => [...prevMessages, userMessageForComplaint]);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          userMessageForComplaint,
+        ]);
         setInput("");
-        const currentUploadedFilesForComplaint = [...uploadedFiles];
         setUploadedFiles([]);
 
         // Save user message to Firebase if a conversation is active or being created
         let activeFirebaseConvIdForComplaint = currentConversationId;
-        if (!activeFirebaseConvIdForComplaint && firebaseUserId && profile?.email) {
+        if (
+          !activeFirebaseConvIdForComplaint &&
+          firebaseUserId &&
+          profile?.email
+        ) {
           try {
-            activeFirebaseConvIdForComplaint = await createConversation(firebaseUserId, profile.email, userMessageForComplaint);
+            activeFirebaseConvIdForComplaint = await createConversation(
+              firebaseUserId,
+              profile.email,
+              userMessageForComplaint
+            );
             setCurrentConversationId(activeFirebaseConvIdForComplaint);
             // Add to conversationsList immediately (without Dify ID initially)
-            setConversationsList(prev => [
-              { 
-                id: activeFirebaseConvIdForComplaint!,
-                user_id: firebaseUserId, 
-                user_email: profile.email!, 
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              } as Omit<ConversationType, 'messages'>,
-               ...prev
-              ].sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+            setConversationsList((prev) =>
+              [
+                {
+                  id: activeFirebaseConvIdForComplaint!,
+                  user_id: firebaseUserId,
+                  user_email: profile.email!,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                } as Omit<ConversationType, "messages">,
+                ...prev,
+              ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+            );
           } catch (error) {
-            console.error("Error creating Firebase conversation for complaint intent:", error);
+            console.error(
+              "Error creating Firebase conversation for complaint intent:",
+              error
+            );
           }
         } else if (activeFirebaseConvIdForComplaint && firebaseUserId) {
           try {
-            await addMessageToConversation(activeFirebaseConvIdForComplaint, userMessageForComplaint);
-            setConversationsList(prev => prev.map(c => c.id === activeFirebaseConvIdForComplaint ? {...c, updatedAt: new Date()} : c).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+            await addMessageToConversation(
+              activeFirebaseConvIdForComplaint,
+              userMessageForComplaint
+            );
+            setConversationsList((prev) =>
+              prev
+                .map((c) =>
+                  c.id === activeFirebaseConvIdForComplaint
+                    ? { ...c, updatedAt: new Date() }
+                    : c
+                )
+                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+            );
           } catch (error) {
-            console.error("Error adding complaint intent message to Firebase:", error);
+            console.error(
+              "Error adding complaint intent message to Firebase:",
+              error
+            );
           }
         }
-        
+
         // Simulate assistant guiding to complaint form
         setTimeout(() => {
           const assistantResponse: Message = {
             role: "assistant",
-            content: 
-              complaintIntent === 'complaint' 
+            content:
+              complaintIntent === "complaint"
                 ? "I understand you'd like to file a complaint. Please use the form below."
-                : complaintIntent === 'report'
+                : complaintIntent === "report"
                 ? "I can help you report this issue. Please use the form below."
-                : complaintIntent === 'feedback'
+                : complaintIntent === "feedback"
                 ? "Thank you for your feedback. Please use the form below to submit it formally."
                 : "I can help with that. Please use the form below to provide more details.",
             timestamp: new Date(),
@@ -383,56 +416,68 @@ export default function ChatComponent() {
           setComplaintType(complaintIntent);
           setShowComplaintForm(true);
           setIsLoading(false); // Hide loading after complaint UI is ready
-        }, 700); 
+        }, 700);
         return; // Stop further processing in handleSubmit
       }
       // End of Complaint Intent Detection
 
       setIsLoading(true);
-      
-        const userMessage: Message = {
-          role: "user",
-          content: trimmedInput,
-          timestamp: new Date(),
-          id: generateMessageId(),
-          attachedFiles: [...uploadedFiles],
-        };
-        setMessages((prevMessages) => [...prevMessages, userMessage]);
-        setInput("");
+
+      const userMessage: Message = {
+        role: "user",
+        content: trimmedInput,
+        timestamp: new Date(),
+        id: generateMessageId(),
+        attachedFiles: [...uploadedFiles],
+      };
+      setMessages((prevMessages) => [...prevMessages, userMessage]);
+      setInput("");
       const currentUploadedFiles = [...uploadedFiles];
-        setUploadedFiles([]);
-        
+      setUploadedFiles([]);
+
       let activeFirebaseConvId = currentConversationId;
       let isNewFirebaseConversation = false;
-      let capturedDifyIdForNewChat: string | null = null; 
+      let capturedDifyIdForNewChat: string | null = null;
 
       try {
         if (!activeFirebaseConvId && firebaseUserId && profile?.email) {
-          console.log("[ChatComponent] handleSubmit: Creating new Firebase conversation.");
-          const newConvId = await createConversation(firebaseUserId, profile.email, userMessage);
+          const newConvId = await createConversation(
+            firebaseUserId,
+            profile.email,
+            userMessage
+          );
           setCurrentConversationId(newConvId);
           activeFirebaseConvId = newConvId;
-          isNewFirebaseConversation = true; 
-          setConversationsList(prev => [
-            { 
-              id: newConvId, 
-              user_id: firebaseUserId, 
-              user_email: profile.email!, 
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as Omit<ConversationType, 'messages'>,
-             ...prev
-            ].sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
-
+          isNewFirebaseConversation = true;
+          setConversationsList((prev) =>
+            [
+              {
+                id: newConvId,
+                user_id: firebaseUserId,
+                user_email: profile.email!,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as Omit<ConversationType, "messages">,
+              ...prev,
+            ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+          );
         } else if (activeFirebaseConvId && firebaseUserId) {
           await addMessageToConversation(activeFirebaseConvId, userMessage);
-          setConversationsList(prev => prev.map(c => c.id === activeFirebaseConvId ? {...c, updatedAt: new Date()} : c).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+          setConversationsList((prev) =>
+            prev
+              .map((c) =>
+                c.id === activeFirebaseConvId
+                  ? { ...c, updatedAt: new Date() }
+                  : c
+              )
+              .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+          );
         }
 
-        const filesToSend: DifyFileParam[] = currentUploadedFiles.map(f => ({ 
-          type: f.type.startsWith("image") ? "image" : "file", 
-          transfer_method: "local_file", 
-          upload_file_id: f.id 
+        const filesToSend: DifyFileParam[] = currentUploadedFiles.map((f) => ({
+          type: f.type.startsWith("image") ? "image" : "file",
+          transfer_method: "local_file",
+          upload_file_id: f.id,
         }));
 
         const assistantMessageId = generateMessageId();
@@ -448,16 +493,19 @@ export default function ChatComponent() {
           },
         ]);
 
-        const setDifyConversationIdCallback = (newDifyIdFromBackend: string | null) => {
-          console.log(`[ChatComponent] handleSubmit (DifyCallback): Received Dify ID ${newDifyIdFromBackend}. Current Firebase conv ID: ${activeFirebaseConvId}, Is new Firebase convo: ${isNewFirebaseConversation}`);
+        const setDifyConversationIdCallback = (
+          newDifyIdFromBackend: string | null
+        ) => {
           setDifyConversationId(newDifyIdFromBackend);
-          if (isNewFirebaseConversation && activeFirebaseConvId && newDifyIdFromBackend) {
+          if (
+            isNewFirebaseConversation &&
+            activeFirebaseConvId &&
+            newDifyIdFromBackend
+          ) {
             capturedDifyIdForNewChat = newDifyIdFromBackend;
-            console.log(`[ChatComponent] handleSubmit (DifyCallback): Captured Dify ID ${capturedDifyIdForNewChat} for new Firebase conv ID ${activeFirebaseConvId}`);
           }
         };
 
-        console.log(`[ChatComponent] handleSubmit: Calling sendMessageToBackend. Current Dify ID from state: ${difyConversationId}. Firebase conv ID: ${activeFirebaseConvId}`);
         await sendMessageToBackend(
           trimmedInput,
           userId,
@@ -477,7 +525,7 @@ export default function ChatComponent() {
             );
           }
         );
-        
+
         if (activeFirebaseConvId && firebaseUserId && fullAssistantResponse) {
           const assistantMessageForFirebase: Message = {
             id: assistantMessageId,
@@ -485,45 +533,78 @@ export default function ChatComponent() {
             content: fullAssistantResponse,
             timestamp: new Date(),
           };
-          await addMessageToConversation(activeFirebaseConvId, assistantMessageForFirebase);
-          
-          setConversationsList(prev => prev.map(c => {
-            if (c.id === activeFirebaseConvId) {
-              const updatedConv: Omit<ConversationType, 'messages'> = {...c, updatedAt: new Date()};
-              if (isNewFirebaseConversation && capturedDifyIdForNewChat) {
-                updatedConv.difyConversationId = capturedDifyIdForNewChat;
-              }
-              return updatedConv;
-            }
-            return c;
-          }).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+          await addMessageToConversation(
+            activeFirebaseConvId,
+            assistantMessageForFirebase
+          );
+
+          setConversationsList((prev) =>
+            prev
+              .map((c) => {
+                if (c.id === activeFirebaseConvId) {
+                  const updatedConv: Omit<ConversationType, "messages"> = {
+                    ...c,
+                    updatedAt: new Date(),
+                  };
+                  if (isNewFirebaseConversation && capturedDifyIdForNewChat) {
+                    updatedConv.difyConversationId = capturedDifyIdForNewChat;
+                  }
+                  return updatedConv;
+                }
+                return c;
+              })
+              .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+          );
         }
 
-        if (isNewFirebaseConversation && activeFirebaseConvId && capturedDifyIdForNewChat) {
+        if (
+          isNewFirebaseConversation &&
+          activeFirebaseConvId &&
+          capturedDifyIdForNewChat
+        ) {
           try {
-            console.log(`[ChatComponent] handleSubmit: Updating Firebase conv ID ${activeFirebaseConvId} with Dify ID ${capturedDifyIdForNewChat}`);
-            await updateConversationDifyId(activeFirebaseConvId, capturedDifyIdForNewChat);
+            await updateConversationDifyId(
+              activeFirebaseConvId,
+              capturedDifyIdForNewChat
+            );
           } catch (error) {
-            console.error("[ChatComponent] handleSubmit: Failed to update Firebase conversation with Dify ID:", error);
+            console.error(
+              "[ChatComponent] handleSubmit: Failed to update Firebase conversation with Dify ID:",
+              error
+            );
           }
         }
-
       } catch (error) {
         console.error("Error in handleSubmit:", error);
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Error: ${error instanceof Error ? error.message : "An unexpected error occurred."}`, 
-          timestamp: new Date(),
-          id: generateMessageId(),
+            content: `Error: ${
+              error instanceof Error
+                ? error.message
+                : "An unexpected error occurred."
+            }`,
+            timestamp: new Date(),
+            id: generateMessageId(),
           },
         ]);
       } finally {
         setIsLoading(false);
       }
     },
-    [input, uploadedFiles, userId, profileLoading, currentConversationId, firebaseUserId, profile?.email, difyConversationId, generateMessageId, setDifyConversationId]
+    [
+      input,
+      uploadedFiles,
+      userId,
+      profileLoading,
+      currentConversationId,
+      firebaseUserId,
+      profile?.email,
+      difyConversationId,
+      generateMessageId,
+      setDifyConversationId,
+    ]
   );
 
   const handleFileChange = async (
@@ -556,7 +637,7 @@ export default function ChatComponent() {
         );
         return [...prev, ...newFiles];
       });
-      } catch (error) {
+    } catch (error) {
       console.error("Error uploading files:", error);
       alert("Some files could not be uploaded. Please try again.");
     } finally {
@@ -574,10 +655,9 @@ export default function ChatComponent() {
   };
 
   const [isRecording, setIsRecording] = useState(false);
-  const handleToggleRecording = () => setIsRecording(prev => !prev);
   const handleSTTTranscript = (text: string) => {
-    setInput(prev => prev + text);
-    setIsRecording(false); 
+    setInput((prev) => prev + text);
+    setIsRecording(false);
   };
 
   useEffect(() => {
@@ -596,7 +676,7 @@ export default function ChatComponent() {
       if (profile?.id && profile.role) {
         setUserRole(profile.role as UserRole);
       } else if (!profileLoading && !profile?.id) {
-        setUserRole('guest');
+        setUserRole("guest");
       }
     };
     checkUserRole();
@@ -604,11 +684,17 @@ export default function ChatComponent() {
 
   const detectComplaintIntent = (messageText: string): ComplaintType | null => {
     const lowerCaseMessage = messageText.toLowerCase();
-    if (lowerCaseMessage.includes("file a complaint") || lowerCaseMessage.includes("formal complaint")) {
-      return 'complaint';
+    if (
+      lowerCaseMessage.includes("file a complaint") ||
+      lowerCaseMessage.includes("formal complaint")
+    ) {
+      return "complaint";
     }
-    if (lowerCaseMessage.includes("report issue") || lowerCaseMessage.includes("problem with")) {
-      return 'report';
+    if (
+      lowerCaseMessage.includes("report issue") ||
+      lowerCaseMessage.includes("problem with")
+    ) {
+      return "report";
     }
     return null;
   };
@@ -617,7 +703,8 @@ export default function ChatComponent() {
     setShowComplaintForm(false);
     const followUpMessage: Message = {
       role: "assistant",
-      content: "Thank you for your submission. Is there anything else I can help you with today?",
+      content:
+        "Thank you for your submission. Is there anything else I can help you with today?",
       timestamp: new Date(),
       id: generateMessageId(),
     };
@@ -634,7 +721,6 @@ export default function ChatComponent() {
 
       if (
         cleanedMessage.role === "assistant" &&
-        !processedIframeMessagesRef.current.has(cleanedMessage.id) &&
         cleanedMessage.content.includes("<iframe")
       ) {
         const { iframes, textSegments } = extractIframes(
@@ -642,7 +728,6 @@ export default function ChatComponent() {
         );
 
         if (iframes.length > 0) {
-          processedIframeMessagesRef.current.add(cleanedMessage.id);
           const textOnlyContent = textSegments.join("\n\n").trim();
           if (textOnlyContent) {
             result.push({
@@ -680,7 +765,7 @@ export default function ChatComponent() {
         </button>
       </div>
 
-      <ChatSidebar 
+      <ChatSidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         startNewChat={startNewChat}
@@ -717,28 +802,30 @@ export default function ChatComponent() {
                     </div>
                     <div className="rounded-2xl px-4 py-3 bg-card text-card-foreground shadow-sm">
                       {message.content.includes("<iframe") &&
-                        message.id.includes("-iframe-") ? (
-                          createSafeIframe(message.content, isMobile)
-                        ) : (
-                          <>
-                            <MessageContent
-                              content={message.content}
-                              onComplaintClick={() => {
-                                setComplaintType('complaint');
-                                setShowComplaintForm(true);
-                              }}
-                            />
-                            
-                            {!message.content.includes("<iframe") && (
-                              <div className="mt-2 text-xs flex justify-end items-center gap-4">
-                                <TTSButton
-                                  text={extractMessageContent(message.content)}
-                                  profile={profile}
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
+                      message.id.includes("-iframe-") ? (
+                        <div className="w-full my-2">
+                          {createSafeIframe(message.content, isMobile)}
+                        </div>
+                      ) : (
+                        <>
+                          <MessageContent
+                            content={message.content}
+                            onComplaintClick={() => {
+                              setComplaintType("complaint");
+                              setShowComplaintForm(true);
+                            }}
+                          />
+
+                          {!message.content.includes("<iframe") && message.content && message.content.trim() !== "" && (
+                            <div className="mt-2 text-xs flex justify-end items-center gap-4">
+                              <TTSButton
+                                text={extractMessageContent(message.content)}
+                                profile={profile}
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -780,7 +867,13 @@ export default function ChatComponent() {
                 className="flex justify-start">
                 <div className="flex gap-3 max-w-[90%]">
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-accent overflow-hidden">
-                    <Image src="/images/indianapolis.png" alt="Indianapolis Logo" width={20} height={20} className="object-contain" />
+                    <Image
+                      src="/images/indianapolis.png"
+                      alt="Indianapolis Logo"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
                   </div>
                   <ComplaintMessage
                     type={complaintType}
@@ -800,13 +893,28 @@ export default function ChatComponent() {
                 className="flex justify-start">
                 <div className="flex gap-3 max-w-[90%]">
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-accent overflow-hidden">
-                    <Image src="/images/indianapolis.png" alt="Indianapolis Logo" width={20} height={20} className="object-contain" />
+                    <Image
+                      src="/images/indianapolis.png"
+                      alt="Indianapolis Logo"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
                   </div>
                   <div className="rounded-2xl px-6 py-4 bg-card shadow-sm">
                     <div className="flex space-x-2">
-                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
-                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "400ms" }} />
+                      <div
+                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <div
+                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
+                        style={{ animationDelay: "200ms" }}
+                      />
+                      <div
+                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
+                        style={{ animationDelay: "400ms" }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -821,16 +929,15 @@ export default function ChatComponent() {
           <div className="max-w-3xl mx-auto">
             {/* "File a Complaint" Quick Action Button/Chip */}
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Button 
+              <Button
                 variant="outline"
                 size="sm"
-                className="text-xs"
+                className="text-xs hover:bg-accent hover:text-white"
                 onClick={() => {
-                  setComplaintType('complaint');
+                  setComplaintType("complaint");
                   setShowComplaintForm(true);
                   setInput(""); // Clear input if any
-                }}
-              >
+                }}>
                 <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
                 File a Complaint
               </Button>
@@ -857,9 +964,7 @@ export default function ChatComponent() {
               </div>
             )}
 
-            <form 
-              onSubmit={handleSubmit} 
-              className="flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="flex items-center gap-2">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -872,23 +977,34 @@ export default function ChatComponent() {
                 }}
                 placeholder="Type your message..."
                 rows={1}
-                className="flex-1 resize-none bg-background border border-input rounded-md shadow-sm p-2.5 text-sm placeholder-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex-1 resize-none bg-background border border-input rounded-md shadow-sm p-2.5 text-sm placeholder:text-xs sm:placeholder:text-sm placeholder-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 disabled={isLoading}
               />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="icon" 
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => fileInputRef.current?.click()} 
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="text-muted-foreground hover:bg-accent hover:text-white"
+                onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || isLoading}
-                aria-label="Attach file"
-              >
-                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                aria-label="Attach file">
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Paperclip className="h-5 w-5" />
+                )}
               </Button>
-              
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                multiple
+                className="hidden"
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+              />
+
               {profile?.stt_enabled && (
-                <STTButton 
+                <STTButton
                   onTranscript={handleSTTTranscript}
                   isRecording={isRecording}
                   setIsRecording={setIsRecording}
@@ -897,15 +1013,22 @@ export default function ChatComponent() {
                 />
               )}
 
-              <Button 
-                type="submit" 
-                variant="default" 
-                size="icon" 
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md w-10 h-10 flex-shrink-0"
-                disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading || isUploading}
-                aria-label="Send message"
-              >
-                {isLoading && !isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              <Button
+                type="submit"
+                variant="default"
+                size="icon"
+                className="bg-primary text-primary-foreground hover:bg-accent hover:text-white rounded-md w-10 h-10 flex-shrink-0"
+                disabled={
+                  (!input.trim() && uploadedFiles.length === 0) ||
+                  isLoading ||
+                  isUploading
+                }
+                aria-label="Send message">
+                {isLoading && !isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
               </Button>
             </form>
             <div className="mt-2 text-xs text-center text-muted-foreground">

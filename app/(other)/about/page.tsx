@@ -1,6 +1,5 @@
 "use client";
 import Head from "next/head";
-import Image from "next/image";
 import {
   Building2Icon,
   UsersIcon,
@@ -118,12 +117,12 @@ export default function AboutPage() {
               whileInView="animate"
               viewport={{ once: true }}
               className="text-lg text-gray-700 leading-relaxed">
-              IndyChat is more than just a chatbot; it's a commitment from the
-              City of Indianapolis to enhance how you connect with your local
-              government. We believe in transparent communication, easy access
-              to resources, and empowering our citizens through technology.
-              IndyChat is your reliable partner for navigating city services,
-              finding information, and making your voice heard.
+              IndyChat is more than just a chatbot; it&apos;s a commitment from
+              the City of Indianapolis to enhance how you connect with your
+              local government. We believe in transparent communication, easy
+              access to resources, and empowering our citizens through
+              technology. IndyChat is your reliable partner for navigating city
+              services, finding information, and making your voice heard.
             </motion.p>
           </div>
         </motion.section>
@@ -224,7 +223,7 @@ export default function AboutPage() {
               viewport={{ once: true }}
               className="prose prose-lg text-white/90 max-w-none leading-relaxed">
               <p>
-                IndyChat embodies the City of Indianapolis' dedication to
+                IndyChat embodies the City of Indianapolis&apos; dedication to
                 leveraging technology for enhanced civic engagement. Our mission
                 is to provide a seamless, intuitive, and transparent bridge
                 between citizens and municipal services. We are committed to

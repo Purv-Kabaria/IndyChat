@@ -96,7 +96,6 @@ export default function ProfilePage() {
               const profileData = await getUserProfile(user.uid);
 
               if (!profileData) {
-                console.log("No profile found for user, creating basic one");
                 const initialProfile: UserProfile = {
                   id: user.uid,
                   email: user.email || "",
@@ -127,7 +126,13 @@ export default function ProfilePage() {
                 setSttEnabled(initialProfile.stt_enabled || false);
                 if (user.metadata.creationTime) {
                   const date = new Date(user.metadata.creationTime);
-                  setCreatedAt(date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+                  setCreatedAt(
+                    date.toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  );
                 }
               } else {
                 const existingProfile: UserProfile = {
@@ -159,17 +164,17 @@ export default function ProfilePage() {
                     creationTimestamp instanceof Timestamp
                       ? creationTimestamp.toDate()
                       : new Date(creationTimestamp as string);
-                  determinedCreatedAt = date.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
+                  determinedCreatedAt = date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
                   });
                 } else if (user.metadata.creationTime) {
                   const date = new Date(user.metadata.creationTime);
-                  determinedCreatedAt = date.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
+                  determinedCreatedAt = date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
                   });
                 }
                 setCreatedAt(determinedCreatedAt);

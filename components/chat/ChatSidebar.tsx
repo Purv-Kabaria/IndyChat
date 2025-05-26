@@ -1,18 +1,27 @@
 "use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { Plus, X, Settings, Shield, Home, MessageSquare, Loader2 } from 'lucide-react';
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Plus,
+  X,
+  Settings,
+  Shield,
+  Home,
+  MessageSquare,
+  Loader2,
+} from "lucide-react";
 import SignOutButton from "@/components/SignOutButton";
-import { UserRole } from '@/lib/auth-utils';
-import { Conversation as ConversationType } from '@/types/chat';
+import { UserRole } from "@/lib/auth-utils";
+import { Conversation as ConversationType } from "@/types/chat";
+import { useState, useEffect } from "react";
 
 interface ChatSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   startNewChat: () => void;
-  userRole: UserRole | 'guest' | null;
-  conversations: Omit<ConversationType, 'messages'>[];
+  userRole: UserRole | "guest" | null;
+  conversations: Omit<ConversationType, "messages">[];
   currentConversationId: string | null;
   onSelectConversation: (conversationId: string) => void;
   isLoadingConversations: boolean;
@@ -28,21 +37,26 @@ export default function ChatSidebar({
   onSelectConversation,
   isLoadingConversations,
 }: ChatSidebarProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const getRelativeTime = (date: Date | undefined): string => {
-    if (!date) return "年代不明";
+    if (!date) return "Unknown date";
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffInSeconds < 60) return `${diffInSeconds}秒前`;
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
     const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes}分前`;
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}時間前`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
     const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}日前`;
-    
-    return date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   return (
@@ -93,13 +107,21 @@ export default function ChatSidebar({
             <Loader2 className="h-6 w-6 animate-spin text-primary/70" />
           </div>
         ) : conversations.length === 0 ? (
-          <p className="text-xs text-primary/60 px-2 py-1 text-center">No recent conversations.</p>
+          <p className="text-xs text-primary/60 px-2 py-1 text-center">
+            No recent conversations.
+          </p>
         ) : (
           conversations.map((convo) => (
             <button
               key={convo.id}
-              onClick={() => onSelectConversation(convo.id)}
-              title={`Conversation from ${convo.updatedAt ? convo.updatedAt.toLocaleDateString() : 'unknown date'}`}
+              onClick={() => {
+                onSelectConversation(convo.id);
+              }}
+              title={
+                isMounted && convo.updatedAt
+                  ? `Conversation from ${convo.updatedAt.toLocaleDateString()}`
+                  : "Loading conversation details"
+              }
               className={`w-full text-left px-2 py-2.5 text-xs rounded-md flex items-center gap-2 transition-colors truncate
                 ${
                   currentConversationId === convo.id
@@ -108,10 +130,22 @@ export default function ChatSidebar({
                 }`}>
               <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="flex-grow truncate">
-                {`Chat on ${convo.createdAt ? convo.createdAt.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric'}) : '年代不明'}`}
+                {isMounted ? (
+                  `Chat on ${
+                    convo.createdAt
+                      ? convo.createdAt.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "Unknown date"
+                  }`
+                ) : (
+                  <span className="text-primary/60">Loading title...</span>
+                )}
               </span>
               <span className="text-primary/50 text-[10px] flex-shrink-0">
-                {getRelativeTime(convo.updatedAt)}
+                {isMounted ? getRelativeTime(convo.updatedAt) : ""}
               </span>
             </button>
           ))
@@ -125,15 +159,15 @@ export default function ChatSidebar({
             <span>Back to Home</span>
           </button>
         </Link>
-        
+
         <Link href="/profile">
           <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span>Settings</span>
           </button>
         </Link>
-        
-        {userRole === 'admin' && (
+
+        {userRole === "admin" && (
           <Link href="/admin/users">
             <button className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -141,13 +175,12 @@ export default function ChatSidebar({
             </button>
           </Link>
         )}
-        
-        <SignOutButton 
-          variant="minimal" 
+
+        <SignOutButton
+          variant="minimal"
           className="w-full text-left px-2 py-2 text-sm rounded-md hover:bg-accent-light/50 transition-colors"
         />
       </div>
     </div>
   );
 }
-
