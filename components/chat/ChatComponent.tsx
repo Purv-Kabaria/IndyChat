@@ -13,6 +13,7 @@ import {
   Mic,
   MicOff,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -22,16 +23,30 @@ import Image from "next/image";
 import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
 import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
-import { Message, UploadedFile, DifyFileParam } from "@/types/chat";
+import { Message, UploadedFile, DifyFileParam, Conversation as ConversationType, EmbeddedMessage } from "@/types/chat";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
-import { auth, updateUserProfile } from '@/lib/firebase';
+import { 
+  auth, 
+  updateUserProfile, 
+  createConversation, 
+  addMessageToConversation, 
+  getConversationsForUser, 
+  getConversationWithMessages,
+  updateConversationDifyId
+} from '@/lib/firebase';
 import ChatSidebar from "./ChatSidebar";
 import { ComplaintMessage } from "./ComplaintMessage";
 import { ComplaintType } from "@/functions/complaintUtils";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { UserRole } from '@/lib/auth-utils';
+
+const messageVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, height: 0 },
+};
 
 const extractMessageContent = (content: string): string => {
   if (!content || typeof content !== "string") return "";
@@ -43,6 +58,7 @@ const extractMessageContent = (content: string): string => {
         return jsonContent.action_input;
       }
     } catch {
+      // Ignore parsing errors if not valid JSON
     }
   }
   return content;
@@ -152,8 +168,11 @@ export default function ChatComponent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageIdCounterRef = useRef(0);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [conversationsList, setConversationsList] = useState<Omit<ConversationType, 'messages'>[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [firebaseUserId, setFirebaseUserId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,11 +181,11 @@ export default function ChatComponent() {
   const hasInitializedRef = useRef(false);
   const processedIframeMessagesRef = useRef<Set<string>>(new Set());
   const [isMobile, setIsMobile] = useState(false);
-  const { profile } = useUserProfile();
-
+  const { profile, loading: profileLoading } = useUserProfile();
   const [userRole, setUserRole] = useState<UserRole | 'guest' | null>(null);
   const [showComplaintForm, setShowComplaintForm] = useState(false);
   const [complaintType, setComplaintType] = useState<ComplaintType>('complaint');
+  const [difyConversationId, setDifyConversationId] = useState<string | null>(null);
 
   const generateMessageId = () => {
     const counter = messageIdCounterRef.current;
@@ -174,11 +193,338 @@ export default function ChatComponent() {
     return `msg-${Date.now()}-${counter}`;
   };
 
-  const generateUserId = () => {
+  const generateDifyUserId = () => {
     return `web-user-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 8)}`;
   };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setFirebaseUserId(user.uid);
+        if (profile?.id) { 
+          setIsLoadingConversations(true);
+          try {
+            const convos = await getConversationsForUser(profile.id);
+            setConversationsList(convos);
+          } catch (error) {
+            console.error("Error fetching conversations:", error);
+            setConversationsList([]);
+          } finally {
+            setIsLoadingConversations(false);
+          }
+        }
+      } else {
+        setFirebaseUserId(null);
+        setConversationsList([]);
+        setCurrentConversationId(null); 
+      }
+    });
+    return () => unsubscribe();
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!userId) {
+      setUserId(generateDifyUserId());
+    }
+  }, [userId]);
+
+  const handleSelectConversation = useCallback(async (conversationIdToLoad: string) => {
+    if (!profile?.id) return;
+    console.log(`[ChatComponent] handleSelectConversation: Loading Firebase conv ID ${conversationIdToLoad}`);
+    setIsLoading(true);
+    setMessages([]);
+    setDifyConversationId(null);
+    try {
+      const conversation = await getConversationWithMessages(conversationIdToLoad);
+      if (conversation) {
+        setCurrentConversationId(conversation.id);
+        const loadedMessages: Message[] = conversation.messages.map(emsg => ({
+          id: emsg.id,
+          role: emsg.role,
+          content: emsg.message,
+          timestamp: emsg.date,
+          attachedFiles: emsg.attachedFiles,
+        }));
+        setMessages(loadedMessages);
+        
+        if (conversation.difyConversationId) {
+          setDifyConversationId(conversation.difyConversationId);
+          console.log(`[ChatComponent] handleSelectConversation: Loaded Dify ID ${conversation.difyConversationId} for Firebase conv ID ${conversation.id}`);
+        } else {
+          setDifyConversationId(null);
+          console.log(`[ChatComponent] handleSelectConversation: No Dify ID found for Firebase conv ID ${conversation.id}. Setting to null.`);
+        }
+        processedIframeMessagesRef.current.clear();
+
+      } else {
+        console.warn("[ChatComponent] handleSelectConversation: Could not load conversation:", conversationIdToLoad);
+        setCurrentConversationId(null);
+        setDifyConversationId(null); 
+      }
+    } catch (error) {
+      console.error("Error loading conversation:", error);
+      setCurrentConversationId(null);
+      setDifyConversationId(null); 
+    } finally {
+      setIsLoading(false);
+      setSidebarOpen(false);
+    }
+  }, [profile?.id]);
+
+  const startNewChat = useCallback(() => {
+    setMessages([]);
+    setCurrentConversationId(null);
+    setDifyConversationId(null);
+    setInput("");
+    setUploadedFiles([]);
+    if (textareaRef.current) textareaRef.current.focus();
+    setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !hasInitializedRef.current && userId) {
+      hasInitializedRef.current = true;
+      const promptParam = searchParams.get("prompt");
+      if (messages.length === 0 && promptParam) {
+          const initialUserMessage: Message = {
+            role: "user",
+            content: promptParam,
+            timestamp: new Date(),
+            id: generateMessageId(),
+          };
+          setMessages([initialUserMessage]);
+      }
+    }
+  }, [searchParams, userId, messages.length]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  const handleSubmit = useCallback(
+    async (e?: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement> | React.KeyboardEvent<HTMLInputElement>) => {
+      if (e) e.preventDefault();
+
+      const trimmedInput = input.trim();
+      if (!trimmedInput && uploadedFiles.length === 0) return;
+      if (!userId || profileLoading) return;
+
+      // Complaint Intent Detection (restored)
+      const complaintIntent = detectComplaintIntent(trimmedInput);
+      if (complaintIntent && complaintIntent !== null) { // Check if not null explicitly
+        setIsLoading(true); // Show loading while preparing complaint UI
+        const userMessageForComplaint: Message = {
+          role: "user",
+          content: trimmedInput,
+          timestamp: new Date(),
+          id: generateMessageId(),
+          attachedFiles: [...uploadedFiles],
+        };
+        setMessages((prevMessages) => [...prevMessages, userMessageForComplaint]);
+        setInput("");
+        const currentUploadedFilesForComplaint = [...uploadedFiles];
+        setUploadedFiles([]);
+
+        // Save user message to Firebase if a conversation is active or being created
+        let activeFirebaseConvIdForComplaint = currentConversationId;
+        if (!activeFirebaseConvIdForComplaint && firebaseUserId && profile?.email) {
+          try {
+            activeFirebaseConvIdForComplaint = await createConversation(firebaseUserId, profile.email, userMessageForComplaint);
+            setCurrentConversationId(activeFirebaseConvIdForComplaint);
+            // Add to conversationsList immediately (without Dify ID initially)
+            setConversationsList(prev => [
+              { 
+                id: activeFirebaseConvIdForComplaint!,
+                user_id: firebaseUserId, 
+                user_email: profile.email!, 
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as Omit<ConversationType, 'messages'>,
+               ...prev
+              ].sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+          } catch (error) {
+            console.error("Error creating Firebase conversation for complaint intent:", error);
+          }
+        } else if (activeFirebaseConvIdForComplaint && firebaseUserId) {
+          try {
+            await addMessageToConversation(activeFirebaseConvIdForComplaint, userMessageForComplaint);
+            setConversationsList(prev => prev.map(c => c.id === activeFirebaseConvIdForComplaint ? {...c, updatedAt: new Date()} : c).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+          } catch (error) {
+            console.error("Error adding complaint intent message to Firebase:", error);
+          }
+        }
+        
+        // Simulate assistant guiding to complaint form
+        setTimeout(() => {
+          const assistantResponse: Message = {
+            role: "assistant",
+            content: 
+              complaintIntent === 'complaint' 
+                ? "I understand you'd like to file a complaint. Please use the form below."
+                : complaintIntent === 'report'
+                ? "I can help you report this issue. Please use the form below."
+                : complaintIntent === 'feedback'
+                ? "Thank you for your feedback. Please use the form below to submit it formally."
+                : "I can help with that. Please use the form below to provide more details.",
+            timestamp: new Date(),
+            id: generateMessageId(),
+          };
+          setMessages((prev) => [...prev, assistantResponse]);
+          setComplaintType(complaintIntent);
+          setShowComplaintForm(true);
+          setIsLoading(false); // Hide loading after complaint UI is ready
+        }, 700); 
+        return; // Stop further processing in handleSubmit
+      }
+      // End of Complaint Intent Detection
+
+      setIsLoading(true);
+      
+        const userMessage: Message = {
+          role: "user",
+          content: trimmedInput,
+          timestamp: new Date(),
+          id: generateMessageId(),
+          attachedFiles: [...uploadedFiles],
+        };
+        setMessages((prevMessages) => [...prevMessages, userMessage]);
+        setInput("");
+      const currentUploadedFiles = [...uploadedFiles];
+        setUploadedFiles([]);
+        
+      let activeFirebaseConvId = currentConversationId;
+      let isNewFirebaseConversation = false;
+      let capturedDifyIdForNewChat: string | null = null; 
+
+      try {
+        if (!activeFirebaseConvId && firebaseUserId && profile?.email) {
+          console.log("[ChatComponent] handleSubmit: Creating new Firebase conversation.");
+          const newConvId = await createConversation(firebaseUserId, profile.email, userMessage);
+          setCurrentConversationId(newConvId);
+          activeFirebaseConvId = newConvId;
+          isNewFirebaseConversation = true; 
+          setConversationsList(prev => [
+            { 
+              id: newConvId, 
+              user_id: firebaseUserId, 
+              user_email: profile.email!, 
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Omit<ConversationType, 'messages'>,
+             ...prev
+            ].sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+
+        } else if (activeFirebaseConvId && firebaseUserId) {
+          await addMessageToConversation(activeFirebaseConvId, userMessage);
+          setConversationsList(prev => prev.map(c => c.id === activeFirebaseConvId ? {...c, updatedAt: new Date()} : c).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+        }
+
+        const filesToSend: DifyFileParam[] = currentUploadedFiles.map(f => ({ 
+          type: f.type.startsWith("image") ? "image" : "file", 
+          transfer_method: "local_file", 
+          upload_file_id: f.id 
+        }));
+
+        const assistantMessageId = generateMessageId();
+        let fullAssistantResponse = "";
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+            id: assistantMessageId,
+          },
+        ]);
+
+        const setDifyConversationIdCallback = (newDifyIdFromBackend: string | null) => {
+          console.log(`[ChatComponent] handleSubmit (DifyCallback): Received Dify ID ${newDifyIdFromBackend}. Current Firebase conv ID: ${activeFirebaseConvId}, Is new Firebase convo: ${isNewFirebaseConversation}`);
+          setDifyConversationId(newDifyIdFromBackend);
+          if (isNewFirebaseConversation && activeFirebaseConvId && newDifyIdFromBackend) {
+            capturedDifyIdForNewChat = newDifyIdFromBackend;
+            console.log(`[ChatComponent] handleSubmit (DifyCallback): Captured Dify ID ${capturedDifyIdForNewChat} for new Firebase conv ID ${activeFirebaseConvId}`);
+          }
+        };
+
+        console.log(`[ChatComponent] handleSubmit: Calling sendMessageToBackend. Current Dify ID from state: ${difyConversationId}. Firebase conv ID: ${activeFirebaseConvId}`);
+        await sendMessageToBackend(
+          trimmedInput,
+          userId,
+          filesToSend,
+          difyConversationId,
+          generateMessageId,
+          setIsLoading,
+          setDifyConversationIdCallback,
+          (chunk) => {
+            fullAssistantResponse += chunk;
+            setMessages((prevMsgs) =>
+              prevMsgs.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: fullAssistantResponse }
+                  : msg
+              )
+            );
+          }
+        );
+        
+        if (activeFirebaseConvId && firebaseUserId && fullAssistantResponse) {
+          const assistantMessageForFirebase: Message = {
+            id: assistantMessageId,
+            role: "assistant",
+            content: fullAssistantResponse,
+            timestamp: new Date(),
+          };
+          await addMessageToConversation(activeFirebaseConvId, assistantMessageForFirebase);
+          
+          setConversationsList(prev => prev.map(c => {
+            if (c.id === activeFirebaseConvId) {
+              const updatedConv: Omit<ConversationType, 'messages'> = {...c, updatedAt: new Date()};
+              if (isNewFirebaseConversation && capturedDifyIdForNewChat) {
+                updatedConv.difyConversationId = capturedDifyIdForNewChat;
+              }
+              return updatedConv;
+            }
+            return c;
+          }).sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+        }
+
+        if (isNewFirebaseConversation && activeFirebaseConvId && capturedDifyIdForNewChat) {
+          try {
+            console.log(`[ChatComponent] handleSubmit: Updating Firebase conv ID ${activeFirebaseConvId} with Dify ID ${capturedDifyIdForNewChat}`);
+            await updateConversationDifyId(activeFirebaseConvId, capturedDifyIdForNewChat);
+          } catch (error) {
+            console.error("[ChatComponent] handleSubmit: Failed to update Firebase conversation with Dify ID:", error);
+          }
+        }
+
+      } catch (error) {
+        console.error("Error in handleSubmit:", error);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Error: ${error instanceof Error ? error.message : "An unexpected error occurred."}`, 
+          timestamp: new Date(),
+          id: generateMessageId(),
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [input, uploadedFiles, userId, profileLoading, currentConversationId, firebaseUserId, profile?.email, difyConversationId, generateMessageId, setDifyConversationId]
+  );
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -210,7 +556,7 @@ export default function ChatComponent() {
         );
         return [...prev, ...newFiles];
       });
-    } catch (error) {
+      } catch (error) {
       console.error("Error uploading files:", error);
       alert("Some files could not be uploaded. Please try again.");
     } finally {
@@ -227,183 +573,59 @@ export default function ChatComponent() {
     );
   };
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && !hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-
-      const promptParam = searchParams.get("prompt");
-      let currentUserId = userId;
-      if (!currentUserId) {
-        currentUserId = generateUserId();
-        setUserId(currentUserId);
-      }
-
-      if (messages.length === 0) {
-        if (promptParam) {
-          const initialUserMessage: Message = {
-            role: "user",
-            content: promptParam,
-            timestamp: new Date(),
-            id: generateMessageId(),
-          };
-
-          setMessages([initialUserMessage]);
-
-          sendMessageToBackend(
-            promptParam,
-            currentUserId,
-            [],
-            conversationId,
-            generateMessageId,
-            setMessages,
-            setIsLoading,
-            setConversationId
-          ).catch((err) => console.error("Initial prompt send failed:", err));
-        }
-      }
-    }
-  }, [searchParams, userId, conversationId, messages.length]);
+  const [isRecording, setIsRecording] = useState(false);
+  const handleToggleRecording = () => setIsRecording(prev => !prev);
+  const handleSTTTranscript = (text: string) => {
+    setInput(prev => prev + text);
+    setIsRecording(false); 
+  };
 
   useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
     if (typeof window !== "undefined") {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      inputRef.current?.focus();
+      checkScreenSize();
+      window.addEventListener("resize", checkScreenSize);
+      return () => window.removeEventListener("resize", checkScreenSize);
     }
   }, []);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement> | React.KeyboardEvent<HTMLInputElement>) => {
-      e.preventDefault();
-      const trimmedInput = input.trim();
-      if ((!trimmedInput && uploadedFiles.length === 0) || isLoading) return;
-
-      // Special case for direct complaint requests
-      const lowerTrimmedInput = trimmedInput.toLowerCase();
-      if (lowerTrimmedInput === "i have a complaint" || lowerTrimmedInput === "i want to make a complaint") {
-        setInput("");
-        setUploadedFiles([]);
-        setComplaintType('complaint');
-        setShowComplaintForm(true);
-        return;
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (profile?.id && profile.role) {
+        setUserRole(profile.role as UserRole);
+      } else if (!profileLoading && !profile?.id) {
+        setUserRole('guest');
       }
-      
-      // Check for other complaint intents
-      const complaintIntent = detectComplaintIntent(trimmedInput);
-      if (complaintIntent) {
-        // Create a new message from the user
-        const userMessage: Message = {
-          role: "user",
-          content: trimmedInput,
-          timestamp: new Date(),
-          id: generateMessageId(),
-          attachedFiles: [...uploadedFiles],
-        };
-        setMessages((prevMessages) => [...prevMessages, userMessage]);
-        setInput("");
-        setUploadedFiles([]);
-        
-        // Show appropriate assistant response
-        setTimeout(() => {
-          // Add a message from the assistant offering to submit a complaint
-          const assistantResponse: Message = {
-            role: "assistant",
-            content: complaintIntent === 'complaint' 
-              ? "I understand you're having an issue. Would you like to submit a formal complaint?"
-              : complaintIntent === 'report'
-              ? "Would you like to report this issue to our team?"
-              : complaintIntent === 'feedback'
-              ? "Thank you for your feedback. Would you like to submit it formally to our team?"
-              : "Thanks for your suggestion. Would you like to submit it formally to our team?",
-            timestamp: new Date(),
-            id: generateMessageId(),
-          };
-          
-          setMessages((prev) => [...prev, assistantResponse]);
-          
-          // Show the complaint form
-          setComplaintType(complaintIntent);
-          setShowComplaintForm(true);
-        }, 1000);
-        
-        return;
-      }
+    };
+    checkUserRole();
+  }, [profile, profileLoading]);
 
-      if (trimmedInput || uploadedFiles.length > 0) {
-        const userMessage: Message = {
-          role: "user",
-          content: trimmedInput,
-          timestamp: new Date(),
-          id: generateMessageId(),
-          attachedFiles: [...uploadedFiles],
-        };
-        setMessages((prevMessages) => [...prevMessages, userMessage]);
-        setInput("");
-      } else {
-        return;
-      }
-
-      let userIdToSend = userId;
-      if (!userIdToSend) {
-        userIdToSend = generateUserId();
-        setUserId(userIdToSend);
-        console.warn("handleSubmit: userId was null, generated:", userIdToSend);
-      }
-
-      const filesToSubmit: DifyFileParam[] = uploadedFiles.map((file) => ({
-        type: file.type,
-        transfer_method: "local_file",
-        upload_file_id: file.id,
-      }));
-
-      setUploadedFiles([]);
-
-      try {
-        await sendMessageToBackend(
-          trimmedInput, 
-          userIdToSend, 
-          filesToSubmit,
-          conversationId,
-          generateMessageId,
-          setMessages,
-          setIsLoading,
-          setConversationId
-        );
-      } catch (error) {
-        console.error("handleSubmit Error:", error);
-      }
-    },
-    [input, isLoading, userId, uploadedFiles, conversationId]
-  );
-
-  const startNewChat = () => {
-    setConversationId(null);
-    setSidebarOpen(false);
-  };
-
-  const handleSTTTranscript = (text: string) => {
-    setInput((prev) => {
-      const currentInput = prev.trim();
-      return currentInput.length > 0 ? `${currentInput} ${text}` : text;
-    });
-    if (textareaRef.current) {
-      setTimeout(() => textareaRef.current?.focus(), 100);
+  const detectComplaintIntent = (messageText: string): ComplaintType | null => {
+    const lowerCaseMessage = messageText.toLowerCase();
+    if (lowerCaseMessage.includes("file a complaint") || lowerCaseMessage.includes("formal complaint")) {
+      return 'complaint';
     }
+    if (lowerCaseMessage.includes("report issue") || lowerCaseMessage.includes("problem with")) {
+      return 'report';
+    }
+    return null;
   };
 
-  const messageVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, height: 0 },
+  const handleComplaintComplete = () => {
+    setShowComplaintForm(false);
+    const followUpMessage: Message = {
+      role: "assistant",
+      content: "Thank you for your submission. Is there anything else I can help you with today?",
+      timestamp: new Date(),
+      id: generateMessageId(),
+    };
+    setMessages((prev) => [...prev, followUpMessage]);
   };
 
   const processedMessages = useMemo(() => {
     const result: Message[] = [];
-
     messages.forEach((message) => {
       const cleanedMessage = {
         ...message,
@@ -412,7 +634,8 @@ export default function ChatComponent() {
 
       if (
         cleanedMessage.role === "assistant" &&
-        !processedIframeMessagesRef.current.has(cleanedMessage.id)
+        !processedIframeMessagesRef.current.has(cleanedMessage.id) &&
+        cleanedMessage.content.includes("<iframe")
       ) {
         const { iframes, textSegments } = extractIframes(
           cleanedMessage.content
@@ -420,7 +643,6 @@ export default function ChatComponent() {
 
         if (iframes.length > 0) {
           processedIframeMessagesRef.current.add(cleanedMessage.id);
-
           const textOnlyContent = textSegments.join("\n\n").trim();
           if (textOnlyContent) {
             result.push({
@@ -428,7 +650,6 @@ export default function ChatComponent() {
               content: textOnlyContent,
             });
           }
-
           iframes.forEach((iframe, i) => {
             result.push({
               role: "assistant",
@@ -446,106 +667,8 @@ export default function ChatComponent() {
         result.push(cleanedMessage);
       }
     });
-
     return result;
   }, [messages]);
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    if (typeof window !== "undefined") {
-      checkScreenSize();
-      window.addEventListener("resize", checkScreenSize);
-      return () => window.removeEventListener("resize", checkScreenSize);
-    }
-  }, []);
-
-  useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        // Use Firebase authentication state
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-          if (!user) {
-            setUserRole('guest');
-            return;
-          }
-          
-          // Use the role from the profile
-          setUserRole((profile?.role as UserRole) || 'user');
-        });
-        
-        return () => unsubscribe();
-      } catch (error) {
-        console.error('Error checking user role:', error);
-      }
-    };
-
-    checkUserRole();
-  }, [profile]);
-
-  // Function to detect complaint-related queries
-  const detectComplaintIntent = (message: string): ComplaintType | null => {
-    const lowerMessage = message.toLowerCase();
-    
-    if (
-      lowerMessage.includes("complain") || 
-      lowerMessage.includes("not working") || 
-      lowerMessage.includes("doesn't work") || 
-      lowerMessage.includes("problem with") ||
-      lowerMessage.includes("issue with") ||
-      lowerMessage.includes("terrible") ||
-      lowerMessage.includes("awful") ||
-      lowerMessage.includes("frustrated")
-    ) {
-      return 'complaint';
-    }
-    
-    if (
-      lowerMessage.includes("report") || 
-      lowerMessage.includes("broken") || 
-      lowerMessage.includes("error") || 
-      lowerMessage.includes("bug") ||
-      lowerMessage.includes("not functioning")
-    ) {
-      return 'report';
-    }
-    
-    if (
-      lowerMessage.includes("feedback") || 
-      lowerMessage.includes("opinion") || 
-      lowerMessage.includes("experience") || 
-      lowerMessage.includes("think about")
-    ) {
-      return 'feedback';
-    }
-    
-    if (
-      lowerMessage.includes("suggest") || 
-      lowerMessage.includes("idea") || 
-      lowerMessage.includes("improve") || 
-      lowerMessage.includes("better if") ||
-      lowerMessage.includes("would be nice")
-    ) {
-      return 'suggestion';
-    }
-    
-    return null;
-  };
-
-  const handleComplaintComplete = () => {
-    setShowComplaintForm(false);
-    
-    // Add a follow-up message from the assistant
-    const followUpMessage: Message = {
-      role: "assistant",
-      content: "Thank you for your submission. Is there anything else I can help you with today?",
-      timestamp: new Date(),
-      id: generateMessageId(),
-    };
-    
-    setMessages((prev) => [...prev, followUpMessage]);
-  };
 
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
@@ -562,11 +685,15 @@ export default function ChatComponent() {
         setSidebarOpen={setSidebarOpen}
         startNewChat={startNewChat}
         userRole={userRole}
+        conversations={conversationsList}
+        currentConversationId={currentConversationId}
+        onSelectConversation={handleSelectConversation}
+        isLoadingConversations={isLoadingConversations}
       />
 
-      <div className="flex-1 flex flex-col h-full max-h-full overflow-hidden relative">
+      <div className="flex-1 flex flex-col bg-background h-full overflow-hidden">
         <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 md:px-8">
-          <div className="max-w-3xl mx-auto space-y-6 pt-16 md:pt-12">
+          <div className="max-w-3xl mx-auto space-y-6 pt-16 md:pt-12 pb-24">
             {processedMessages.map((message) => (
               <motion.div
                 key={message.id}
@@ -588,7 +715,7 @@ export default function ChatComponent() {
                         className="object-contain"
                       />
                     </div>
-                    <div className="rounded-2xl px-4 py-3 bg-[#f1f1f3] text-accent relative">
+                    <div className="rounded-2xl px-4 py-3 bg-card text-card-foreground shadow-sm">
                       {message.content.includes("<iframe") &&
                         message.id.includes("-iframe-") ? (
                           createSafeIframe(message.content, isMobile)
@@ -607,8 +734,6 @@ export default function ChatComponent() {
                                 <TTSButton
                                   text={extractMessageContent(message.content)}
                                   profile={profile}
-                                  isLoading={isLoading && message.id === messages[messages.length - 1]?.id}
-                                  isLastMessage={message.id === messages[messages.length - 1]?.id}
                                 />
                               </div>
                             )}
@@ -619,18 +744,18 @@ export default function ChatComponent() {
                 )}
 
                 {message.role === "user" && (
-                  <div className="rounded-2xl px-4 py-3 bg-primary border border-accent/10 text-accent max-w-[85%]">
+                  <div className="rounded-2xl px-4 py-3 bg-primary text-primary-foreground max-w-[85%]">
                     <p className="whitespace-pre-wrap break-words">
                       {message.content}
                     </p>
                     {message.attachedFiles &&
                       message.attachedFiles.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-accent/10">
+                        <div className="mt-2 pt-2 border-t border-primary/10">
                           <div className="flex flex-wrap gap-1.5">
                             {message.attachedFiles.map((file) => (
                               <div
                                 key={file.id}
-                                className="flex items-center gap-1 bg-accent/10 text-accent text-[11px] px-1.5 py-0.5 rounded-md whitespace-nowrap"
+                                className="flex items-center gap-1 bg-primary-foreground/10 text-primary-foreground text-[11px] px-1.5 py-0.5 rounded-md whitespace-nowrap"
                                 title={file.name}>
                                 <FileIcon className="h-3 w-3 flex-shrink-0" />
                                 <span className="truncate max-w-[100px]">
@@ -646,242 +771,144 @@ export default function ChatComponent() {
               </motion.div>
             ))}
 
-            {showComplaintForm && (
+            {showComplaintForm && firebaseUserId && (
               <motion.div
                 variants={messageVariants}
                 initial="hidden"
                 animate="visible"
+                exit="exit"
                 className="flex justify-start">
                 <div className="flex gap-3 max-w-[90%]">
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-accent overflow-hidden">
-                    <Image
-                      src="/images/indianapolis.png"
-                      alt="Indianapolis Logo"
-                      width={20}
-                      height={20}
-                      className="object-contain"
-                    />
+                    <Image src="/images/indianapolis.png" alt="Indianapolis Logo" width={20} height={20} className="object-contain" />
                   </div>
                   <ComplaintMessage
                     type={complaintType}
                     onComplete={handleComplaintComplete}
+                    userId={firebaseUserId}
                   />
                 </div>
               </motion.div>
             )}
 
-            {isLoading && messages[messages.length - 1]?.role === "user" && (
+            {isLoading && !showComplaintForm && (
               <motion.div
                 variants={messageVariants}
                 initial="hidden"
                 animate="visible"
+                exit="exit"
                 className="flex justify-start">
                 <div className="flex gap-3 max-w-[90%]">
                   <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-accent overflow-hidden">
-                    <Image
-                      src="/images/indianapolis.png"
-                      alt="Indianapolis Logo"
-                      width={20}
-                      height={20}
-                      className="object-contain"
-                    />
+                    <Image src="/images/indianapolis.png" alt="Indianapolis Logo" width={20} height={20} className="object-contain" />
                   </div>
-                  <div className="rounded-2xl px-6 py-4 bg-[#f1f1f3]">
+                  <div className="rounded-2xl px-6 py-4 bg-card shadow-sm">
                     <div className="flex space-x-2">
-                      <div
-                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      />
-                      <div
-                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
-                        style={{ animationDelay: "200ms" }}
-                      />
-                      <div
-                        className="h-2 w-2 bg-secondary rounded-full animate-bounce"
-                        style={{ animationDelay: "400ms" }}
-                      />
+                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
+                      <div className="h-2 w-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: "400ms" }} />
                     </div>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            <div ref={messagesEndRef} className="h-1" />
+            <div ref={messagesEndRef} className="h-16" />
           </div>
         </div>
 
-        <div className="border-t border-accent/10 bg-primary p-4 relative">
+        <div className="bg-background border-t border-border p-2 md:p-4">
           <div className="max-w-3xl mx-auto">
-            <div className="mb-2 flex flex-wrap items-center">
-              <div 
-                onClick={() => setInput("I have a complaint")}
-                className="cursor-pointer flex items-center bg-accent/5 text-accent text-xs px-3 py-1.5 rounded-full border border-accent/20 mr-2 hover:bg-accent/10 transition-colors"
+            {/* "File a Complaint" Quick Action Button/Chip */}
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  setComplaintType('complaint');
+                  setShowComplaintForm(true);
+                  setInput(""); // Clear input if any
+                }}
               >
-                <AlertCircle className="h-3.5 w-3.5 mr-1" />
-                I have a complaint
-              </div>
-              {uploadedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2 w-full">
-                  {uploadedFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center gap-1 bg-accent/10 text-accent text-xs px-2 py-1 rounded-md border border-accent/20">
-                      <FileIcon className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate max-w-[150px]">{file.name}</span>
-                      <button
-                        onClick={() => removeFile(file.id)}
-                        className="ml-1 text-secondary hover:text-secondary/80"
-                        aria-label={`Remove ${file.name}`}
-                        disabled={isUploading}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
+                File a Complaint
+              </Button>
+              {/* You can add other quick action buttons here if needed */}
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center gap-2 relative">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={isMobile ? "Message Indy..." : "Message IndyChat..."}
-                  className="w-full rounded-3xl border border-accent/20 bg-white px-4 py-2 pr-32 h-[40px] text-accent text-xs placeholder-accent/60 focus:outline-none focus:border-accent/30"
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !isLoading &&
-                      (input.trim() || uploadedFiles.length > 0)
-                    ) {
-                      e.preventDefault();
-                      handleSubmit(
-                        e as React.KeyboardEvent<HTMLInputElement>
-                      );
-                    }
-                  }}
-                />
-
-                {profile?.stt_enabled && (
-                  <div className="absolute right-28 top-1/2 -translate-y-1/2">
-                    <STTButton
-                      onTranscript={handleSTTTranscript}
-                      disabled={isLoading}
-                    />
+            {uploadedFiles.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {uploadedFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-1.5 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-md border border-border">
+                    <FileIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                    <button
+                      onClick={() => removeFile(file.id)}
+                      className="ml-1 text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove ${file.name}`}
+                      disabled={isUploading || isLoading}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-accent/60 hover:text-accent disabled:opacity-50"
-                  aria-label="Attach file">
-                  {isUploading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Paperclip className="h-5 w-5" />
-                  )}
-                </button>
-
-                {profile && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        if (profile.id) {
-                          const newTtsEnabled = !profile.tts_enabled;
-                          await updateUserProfile(profile.id, {
-                            tts_enabled: newTtsEnabled,
-                          });
-                        }
-                      } catch (error) {
-                        console.error("Error updating TTS setting:", error);
-                      }
-                    }}
-                    className={`absolute right-12 top-1/2 -translate-y-1/2 text-accent/60 hover:text-accent ${
-                      profile.tts_enabled ? "text-accent" : "text-accent/40"
-                    }`}
-                    aria-label={
-                      profile.tts_enabled
-                        ? "Disable text-to-speech"
-                        : "Enable text-to-speech"
-                    }
-                    title={
-                      profile.tts_enabled
-                        ? "Disable text-to-speech"
-                        : "Enable text-to-speech"
-                    }>
-                    <Volume2 className="h-5 w-5" />
-                  </button>
-                )}
-
-                {profile && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        if (profile.id) {
-                          const newSttEnabled = !profile.stt_enabled;
-                          await updateUserProfile(profile.id, {
-                            stt_enabled: newSttEnabled,
-                          });
-                        }
-                      } catch (error) {
-                        console.error("Error updating STT setting:", error);
-                      }
-                    }}
-                    className={`absolute right-20 top-1/2 -translate-y-1/2 text-accent/60 hover:text-accent ${
-                      profile.stt_enabled ? "text-accent" : "text-accent/40"
-                    }`}
-                    aria-label={
-                      profile.stt_enabled
-                        ? "Disable speech-to-text"
-                        : "Enable speech-to-text"
-                    }
-                    title={
-                      profile.stt_enabled
-                        ? "Disable speech-to-text"
-                        : "Enable speech-to-text"
-                    }>
-                    {profile.stt_enabled ? (
-                      <Mic className="h-5 w-5" />
-                    ) : (
-                      <MicOff className="h-5 w-5" />
-                    )}
-                  </button>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept=".pdf,.txt,.md,.docx,.xlsx,.pptx,.jpg,.jpeg,.png,.gif,.csv,.html,.xml,.eml,.msg,.epub"
-                />
+                ))}
               </div>
+            )}
 
-              <Button
-                type="submit"
-                className="rounded-full bg-secondary hover:bg-secondary/90 text-white h-[50px] w-[50px] flex items-center justify-center disabled:opacity-50 flex-shrink-0"
-                disabled={
-                  isLoading || (!input.trim() && uploadedFiles.length === 0)
-                }
-                aria-label="Send message">
-                {isLoading && !isUploading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
+            <form 
+              onSubmit={handleSubmit} 
+              className="flex items-center gap-2">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+                placeholder="Type your message..."
+                rows={1}
+                className="flex-1 resize-none bg-background border border-input rounded-md shadow-sm p-2.5 text-sm placeholder-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                disabled={isLoading}
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="icon" 
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => fileInputRef.current?.click()} 
+                disabled={isUploading || isLoading}
+                aria-label="Attach file"
+              >
+                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+              </Button>
+              
+              {profile?.stt_enabled && (
+                <STTButton 
+                  onTranscript={handleSTTTranscript}
+                  isRecording={isRecording}
+                  setIsRecording={setIsRecording}
+                  profile={profile}
+                  disabled={isLoading}
+                />
+              )}
+
+              <Button 
+                type="submit" 
+                variant="default" 
+                size="icon" 
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md w-10 h-10 flex-shrink-0"
+                disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading || isUploading}
+                aria-label="Send message"
+              >
+                {isLoading && !isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
             </form>
-
-            <div className="mt-2 text-xs text-center text-accent/50">
+            <div className="mt-2 text-xs text-center text-muted-foreground">
               IndyChat · Powered by City of Indianapolis
             </div>
           </div>

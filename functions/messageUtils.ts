@@ -8,27 +8,29 @@ export async function sendMessageToBackend(
   filesToSend: DifyFileParam[],
   conversationId: string | null,
   generateMessageId: () => string,
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>,
-  setConversationId: React.Dispatch<React.SetStateAction<string | null>>
+  setDifyConversationIdCallback: (id: string | null) => void,
+  onChunk: (chunk: string) => void
 ): Promise<void> {
-  let assistantMessageId = generateMessageId();
   setIsLoading(true);
-  
+
   try {
     const headers = {
       "Content-Type": "application/json",
     };
-    
+
     const requestBody: any = {
+      inputs: {},
       query: userInput,
       user: userIdToSend,
+      response_mode: "streaming",
     };
-    
+
     if (conversationId) {
       requestBody.conversation_id = conversationId;
     }
-    
+
     if (filesToSend && filesToSend.length > 0) {
       requestBody.files = filesToSend;
     }
@@ -60,12 +62,13 @@ export async function sendMessageToBackend(
         "sendMessageToBackend: Backend API returned an error:",
         errorData
       );
+
       throw new Error(
         errorData.error +
-          (errorData.details ? ` - ${errorData.details}` : "")
+          (errorData.details ? ` - Details: ${errorData.details}` : "")
       );
     }
-    
+
     if (!response.body) {
       throw new Error("ReadableStream not supported by backend response");
     }
@@ -74,18 +77,6 @@ export async function sendMessageToBackend(
     const decoder = new TextDecoder();
     let conversationIdFound = false;
     let buffer = "";
-    
-    assistantMessageId = generateMessageId();
-    
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-        id: assistantMessageId,
-      },
-    ]);
 
     try {
       while (true) {
@@ -106,17 +97,22 @@ export async function sendMessageToBackend(
                 const data = JSON.parse(jsonString);
 
                 if (!conversationIdFound && data.conversation_id) {
-                  setConversationId(data.conversation_id);
+                  setDifyConversationIdCallback(data.conversation_id);
                   conversationIdFound = true;
                 }
 
-                if (data.event === "agent_message" || data.event === "message") {
+                if (
+                  data.event === "agent_message" ||
+                  data.event === "message"
+                ) {
                   let contentChunk = "";
-                  
-                  if (data.answer && typeof data.answer === 'string') {
+                  if (data.answer && typeof data.answer === "string") {
                     try {
                       const answerObj = JSON.parse(data.answer);
-                      if (answerObj.action_input) {
+                      if (
+                        answerObj.action_input &&
+                        typeof answerObj.action_input === "string"
+                      ) {
                         contentChunk = answerObj.action_input;
                       } else {
                         contentChunk = data.answer;
@@ -124,105 +120,47 @@ export async function sendMessageToBackend(
                     } catch (e) {
                       contentChunk = data.answer;
                     }
+                  } else if (data.answer) {
+                    contentChunk = JSON.stringify(data.answer);
                   } else {
-                    contentChunk = data.answer || "";
+                    contentChunk = "";
                   }
-                  
+
                   if (contentChunk) {
-                    setMessages((prev) => {
-                      const currentMsg = prev.find(msg => msg.id === assistantMessageId);
-                      
-                      if (currentMsg && currentMsg.content === "" && contentChunk.trim().startsWith("{")) {
-                        try {
-                          const jsonContent = JSON.parse(contentChunk);
-                          if (jsonContent.action_input) {
-                            return prev.map(msg => 
-                              msg.id === assistantMessageId
-                                ? { ...msg, content: jsonContent.action_input }
-                                : msg
-                            );
-                          }
-                        } catch (e) {
-                        }
-                      }
-                      
-                      return prev.map(msg =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: msg.content + contentChunk }
-                          : msg
-                      );
-                    });
+                    onChunk(contentChunk);
                   }
                 } else if (data.event === "error") {
                   console.error("Dify stream error event:", data);
                   const errorMessage =
-                    data.message || "Unknown error from API during response generation";
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? {
-                            ...msg,
-                            content:
-                              msg.content + `\n\n[API Error: ${errorMessage}]`,
-                          }
-                        : msg
-                    )
-                  );
+                    data.message ||
+                    "Unknown error from API during response generation";
+
+                  throw new Error(`Dify API Error: ${errorMessage}`);
                 }
               }
-            } catch (e) {
+            } catch (e: any) {
               console.error(
-                "Error parsing SSE JSON:",
+                "Error parsing SSE JSON or handling stream data:",
                 e,
                 "Raw line content:",
                 line.substring(5)
               );
+
+              throw new Error(`Error processing stream: ${e.message}`);
             }
           }
           boundary = buffer.indexOf("\n");
         }
       }
-      
-      setMessages((prev) => {
-        const currentMsg = prev.find(msg => msg.id === assistantMessageId);
-        if (currentMsg && currentMsg.content.trim().startsWith("{")) {
-          try {
-            const jsonContent = JSON.parse(currentMsg.content);
-            if (jsonContent.action_input) {
-              return prev.map(msg => 
-                msg.id === assistantMessageId
-                  ? { ...msg, content: jsonContent.action_input }
-                  : msg
-              );
-            }
-          } catch (e) {
-          }
-        }
-        return prev;
-      });
-      
-    } catch (streamError) {
+    } catch (streamError: any) {
       console.error("Error processing stream:", streamError);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: "\n\nError receiving response stream." }
-            : msg
-        )
-      );
+
+      throw streamError;
     }
   } catch (error: any) {
     console.error("sendMessageToBackend Error:", error);
-    const errorMsgId = generateMessageId();
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: `Error: ${error.message || "Could not connect."}`,
-        timestamp: new Date(),
-        id: errorMsgId,
-      },
-    ]);
+
+    throw error;
   } finally {
     setIsLoading(false);
   }

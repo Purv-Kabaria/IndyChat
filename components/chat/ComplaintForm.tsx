@@ -13,9 +13,10 @@ import { toast } from '@/components/ui/use-toast';
 interface ComplaintFormProps {
   onComplete?: () => void;
   initialType?: ComplaintType;
+  userId: string;
 }
 
-export function ComplaintForm({ onComplete, initialType = 'complaint' }: ComplaintFormProps) {
+export function ComplaintForm({ onComplete, initialType = 'complaint', userId }: ComplaintFormProps) {
   const [type, setType] = useState<ComplaintType>(initialType);
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -24,6 +25,16 @@ export function ComplaintForm({ onComplete, initialType = 'complaint' }: Complai
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!userId) {
+      toast({
+        title: "User not identified",
+        description: "Could not submit the report because user ID is missing. Please ensure you are logged in.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     if (!subject.trim() || !description.trim()) {
       toast({
         title: "Missing information",
@@ -37,7 +48,7 @@ export function ComplaintForm({ onComplete, initialType = 'complaint' }: Complai
     
     try {
       await submitComplaint({
-        user_id: '', // Will be set by the submitComplaint function
+        user_id: userId,
         type,
         subject,
         description,
@@ -48,11 +59,9 @@ export function ComplaintForm({ onComplete, initialType = 'complaint' }: Complai
         description: `Your ${type} has been submitted successfully.`,
       });
       
-      // Reset form
       setSubject("");
       setDescription("");
       
-      // Call onComplete if provided
       if (onComplete) {
         onComplete();
       }

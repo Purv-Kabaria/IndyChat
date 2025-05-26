@@ -3,30 +3,44 @@
 import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, AlertCircle } from "lucide-react";
 import { SpeechRecognitionHandler, isSpeechRecognitionSupported } from "@/functions/sttUtils";
+import { UserProfile } from "@/hooks/useUserProfile";
 
 interface STTButtonProps {
   onTranscript: (text: string) => void;
   disabled?: boolean;
   className?: string;
+  profile: UserProfile | null;
+  isRecording: boolean;
+  setIsRecording: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function STTButton({ onTranscript, disabled = false, className = "" }: STTButtonProps) {
-  const [isListening, setIsListening] = useState(false);
+export function STTButton({
+  onTranscript,
+  disabled = false,
+  className = "",
+  profile,
+  isRecording,
+  setIsRecording,
+}: STTButtonProps) {
   const [isSupported, setIsSupported] = useState(true);
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<SpeechRecognitionHandler | null>(null);
 
-  // Check browser support on component mount
   useEffect(() => {
     setIsSupported(isSpeechRecognitionSupported());
   }, []);
 
-  // Initialize speech recognition on first use
+  useEffect(() => {
+    if (profile && !profile.stt_enabled && isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    }
+  }, [profile, isRecording, setIsRecording]);
+
   const initializeRecognition = () => {
-    if (recognitionRef.current) return;
+    if (recognitionRef.current || !profile || !profile.stt_enabled) return;
 
     recognitionRef.current = new SpeechRecognitionHandler(
-      // Handle results
       (transcript, isFinal) => {
         if (isFinal) {
           onTranscript(transcript);
@@ -35,33 +49,30 @@ export function STTButton({ onTranscript, disabled = false, className = "" }: ST
           setInterimTranscript(transcript);
         }
       },
-      // Handle errors
       (error) => {
         console.error("Speech recognition error:", error);
-        setIsListening(false);
+        setIsRecording(false);
       },
-      // Handle state changes
       (listening) => {
-        setIsListening(listening);
+        setIsRecording(listening);
       }
     );
   };
 
   const toggleListening = () => {
-    if (!isSupported || disabled) return;
+    if (!isSupported || disabled || !profile || !profile.stt_enabled) return;
 
     if (!recognitionRef.current) {
       initializeRecognition();
     }
 
-    if (isListening) {
+    if (isRecording) {
       recognitionRef.current?.stop();
     } else {
       recognitionRef.current?.start();
     }
   };
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
@@ -70,43 +81,54 @@ export function STTButton({ onTranscript, disabled = false, className = "" }: ST
     };
   }, []);
 
+  if (!profile || !profile.stt_enabled) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={`text-xs flex items-center gap-1 text-muted-foreground/70 p-2 rounded-md cursor-not-allowed ${className}`}
+        title="Voice input is disabled in your profile settings."
+      >
+        <MicOff className="h-5 w-5" />
+      </button>
+    );
+  }
+  
   if (!isSupported) {
     return (
       <button
+        type="button"
         disabled
-        className={`text-xs flex items-center gap-1 text-red-500/70 p-1 rounded-md cursor-not-allowed ${className}`}
+        className={`text-xs flex items-center gap-1 text-red-500/70 p-2 rounded-md cursor-not-allowed ${className}`}
         title="Speech recognition is not supported in your browser"
       >
-        <AlertCircle className="h-3 w-3" />
-        <span>Not supported</span>
+        <AlertCircle className="h-5 w-5" />
       </button>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center">
       <button
+        type="button"
         onClick={toggleListening}
         disabled={disabled}
-        className={`text-xs flex items-center gap-1 ${
-          isListening 
-            ? "text-red-500 animate-pulse" 
-            : "text-accent/70 hover:text-accent"
-        } transition-colors p-1 rounded-md ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
-        title={isListening ? "Stop listening" : "Start voice input"}
+        className={`p-2 rounded-xl transition-colors 
+          ${isRecording 
+            ? "text-red-500 hover:bg-red-500/10 animate-pulse" 
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"}
+          ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
+        title={isRecording ? "Stop listening" : "Start voice input"}
       >
-        {isListening ? (
-          <MicOff className="h-3 w-3" />
+        {isRecording ? (
+          <MicOff className="h-5 w-5" />
         ) : (
-          <Mic className="h-3 w-3" />
+          <Mic className="h-5 w-5" />
         )}
-        <span>
-          {isListening ? "Stop" : "Voice"}
-        </span>
       </button>
       
-      {interimTranscript && isListening && (
-        <div className="absolute bottom-full mb-1 left-0 bg-accent/10 text-accent text-xs p-1 rounded min-w-[150px] max-w-[300px]">
+      {interimTranscript && isRecording && (
+        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs p-2 rounded shadow-lg min-w-[150px] max-w-[300px] border border-border">
           {interimTranscript}...
         </div>
       )}

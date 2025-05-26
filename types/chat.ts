@@ -18,4 +18,32 @@ export type Message = {
   timestamp: Date;
   id: string;
   attachedFiles?: UploadedFile[];
-}; 
+};
+
+export type EmbeddedMessage = {
+  id: string;
+  date: Date;
+  message: string;
+  role: "user" | "assistant";
+  attachedFiles?: UploadedFile[];
+};
+
+export type Conversation = {
+  id: string;
+  user_id: string;
+  user_email: string;
+  messages: EmbeddedMessage[];
+  difyConversationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ConversationListItem = {
+  id: string;
+  user_id: string;
+  user_email: string;
+  difyConversationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastMessagePreview?: string;
+};
