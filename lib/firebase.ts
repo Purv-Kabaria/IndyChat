@@ -225,7 +225,9 @@ interface FirestoreConversationData {
   id?: string;
 }
 
-const safeTimestampToDate = (timestamp: Timestamp | FieldValue | Date | null | undefined): Date => {
+const safeTimestampToDate = (
+  timestamp: Timestamp | FieldValue | Date | null | undefined
+): Date => {
   if (timestamp && typeof (timestamp as Timestamp).toDate === "function") {
     return (timestamp as Timestamp).toDate();
   }
@@ -293,8 +295,32 @@ export const getConversationsForUser = async (
   const q = query(
     collection(db, "conversations"),
     where("user_id", "==", user_id),
-    orderBy("updatedAt", "desc"), // Order by most recently updated
+    orderBy("updatedAt", "desc"),
     limit(50)
+  );
+  const querySnapshot = await getDocs(q);
+  const conversations: Omit<Conversation, "messages">[] = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    conversations.push({
+      id: docSnap.id,
+      user_id: data.user_id,
+      user_email: data.user_email,
+      difyConversationId: data.difyConversationId || undefined,
+      createdAt: safeTimestampToDate(data.createdAt),
+      updatedAt: safeTimestampToDate(data.updatedAt),
+    } as Omit<Conversation, "messages">);
+  });
+  return conversations;
+};
+
+export const getAllConversations = async (
+  limitCount: number = 50
+): Promise<Omit<Conversation, "messages">[]> => {
+  const q = query(
+    collection(db, "conversations"),
+    orderBy("updatedAt", "desc"),
+    limit(limitCount)
   );
   const querySnapshot = await getDocs(q);
   const conversations: Omit<Conversation, "messages">[] = [];
@@ -321,7 +347,11 @@ export const getConversationWithMessages = async (
   if (docSnap.exists()) {
     const data = docSnap.data();
     const messages: EmbeddedMessage[] = (data.messages || []).map(
-      (msg: Omit<EmbeddedMessage, 'date'> & { date?: Timestamp | Date | FieldValue }) => ({
+      (
+        msg: Omit<EmbeddedMessage, "date"> & {
+          date?: Timestamp | Date | FieldValue;
+        }
+      ) => ({
         ...msg,
         date: safeTimestampToDate(msg.date),
       })
@@ -354,6 +384,6 @@ export const updateConversationDifyId = async (
   const conversationRef = doc(db, "conversations", firebaseConversationId);
   await updateDoc(conversationRef, {
     difyConversationId: difyConversationId,
-    updatedAt: serverTimestamp(), // Also update the timestamp
+    updatedAt: serverTimestamp(),
   });
 };

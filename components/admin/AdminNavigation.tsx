@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   AlertCircle,
   Newspaper,
+  MessageCircle,
 } from "lucide-react";
 
 export default function AdminNavigation() {
@@ -39,6 +40,11 @@ export default function AdminNavigation() {
       name: "Articles",
       href: "/admin/articles",
       icon: Newspaper,
+    },
+    {
+      name: "Conversations",
+      href: "/admin/conversations",
+      icon: MessageCircle,
     },
   ];
 

@@ -26,6 +26,7 @@ import {
   ComplaintPriority,
 } from "@/functions/complaintUtils";
 import type { Complaint as ComplaintBaseType } from "@/functions/complaintUtils";
+import Image from "next/image";
 
 type ExtendedComplaint = ComplaintBaseType & {
   profiles?: {
@@ -222,10 +223,12 @@ export function EditComplaintDialog({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity">
-                    <img
+                    className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity relative">
+                    <Image
                       src={url}
                       alt={`Complaint image ${index + 1}`}
+                      layout="fill"
+                      objectFit="cover"
                       className="w-full h-full object-cover"
                     />
                   </a>

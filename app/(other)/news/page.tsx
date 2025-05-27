@@ -12,7 +12,12 @@ import {
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
-import { getAllArticles, Article, ARTICLE_CATEGORIES, ArticleCategory } from "@/functions/articleUtils";
+import {
+  getAllArticles,
+  Article,
+  ARTICLE_CATEGORIES,
+  ArticleCategory,
+} from "@/functions/articleUtils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -21,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -50,7 +56,9 @@ export default function NewsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<ArticleCategory | "all">("all");
+  const [selectedCategory, setSelectedCategory] = useState<
+    ArticleCategory | "all"
+  >("all");
   const [sortBy, setSortBy] = useState<string>("date_desc");
 
   const availableCategories = useMemo(() => {
@@ -75,12 +83,14 @@ export default function NewsPage() {
     switch (sortBy) {
       case "date_asc":
         processedArticles.sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         break;
       case "date_desc":
         processedArticles.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         break;
       case "title_asc":
@@ -91,7 +101,8 @@ export default function NewsPage() {
         break;
       default:
         processedArticles.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
     }
     return processedArticles;
@@ -172,8 +183,11 @@ export default function NewsPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 {/* Search Input */}
                 <div className="md:col-span-1">
-                  <label htmlFor="search-articles" className="block text-sm font-medium text-gray-700 mb-1">
-                    <Search className="inline h-4 w-4 mr-1 opacity-70"/> Search Titles
+                  <label
+                    htmlFor="search-articles"
+                    className="block text-sm font-medium text-gray-700 mb-1">
+                    <Search className="inline h-4 w-4 mr-1 opacity-70" /> Search
+                    Titles
                   </label>
                   <Input
                     id="search-articles"
@@ -187,17 +201,33 @@ export default function NewsPage() {
 
                 {/* Category Filter */}
                 <div>
-                  <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                    <ListFilter className="inline h-4 w-4 mr-1 opacity-70"/> Filter by Category
+                  <label
+                    htmlFor="category-filter"
+                    className="block text-sm font-medium text-gray-700 mb-1">
+                    <ListFilter className="inline h-4 w-4 mr-1 opacity-70" />{" "}
+                    Filter by Category
                   </label>
-                  <Select value={selectedCategory} onValueChange={(value: ArticleCategory | 'all') => setSelectedCategory(value)}>
-                    <SelectTrigger id="category-filter" className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent">
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={(value: ArticleCategory | "all") =>
+                      setSelectedCategory(value)
+                    }>
+                    <SelectTrigger
+                      id="category-filter"
+                      className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border border-gray-200 shadow-md">
-                      <SelectItem value="all" className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">All Categories</SelectItem>
+                      <SelectItem
+                        value="all"
+                        className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        All Categories
+                      </SelectItem>
                       {availableCategories.map((category) => (
-                        <SelectItem key={category} value={category} className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        <SelectItem
+                          key={category}
+                          value={category}
+                          className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
                           {category}
                         </SelectItem>
                       ))}
@@ -207,18 +237,39 @@ export default function NewsPage() {
 
                 {/* Sort By */}
                 <div>
-                  <label htmlFor="sort-by" className="block text-sm font-medium text-gray-700 mb-1">
-                    <ArrowDownUp className="inline h-4 w-4 mr-1 opacity-70"/> Sort By
+                  <label
+                    htmlFor="sort-by"
+                    className="block text-sm font-medium text-gray-700 mb-1">
+                    <ArrowDownUp className="inline h-4 w-4 mr-1 opacity-70" />{" "}
+                    Sort By
                   </label>
                   <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger id="sort-by" className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent">
+                    <SelectTrigger
+                      id="sort-by"
+                      className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent">
                       <SelectValue placeholder="Sort articles" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border border-gray-200 shadow-md">
-                      <SelectItem value="date_desc" className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">Date (Newest First)</SelectItem>
-                      <SelectItem value="date_asc" className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">Date (Oldest First)</SelectItem>
-                      <SelectItem value="title_asc" className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">Title (A-Z)</SelectItem>
-                      <SelectItem value="title_desc" className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">Title (Z-A)</SelectItem>
+                      <SelectItem
+                        value="date_desc"
+                        className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        Date (Newest First)
+                      </SelectItem>
+                      <SelectItem
+                        value="date_asc"
+                        className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        Date (Oldest First)
+                      </SelectItem>
+                      <SelectItem
+                        value="title_asc"
+                        className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        Title (A-Z)
+                      </SelectItem>
+                      <SelectItem
+                        value="title_desc"
+                        className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
+                        Title (Z-A)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -261,12 +312,14 @@ export default function NewsPage() {
                     variants={{ ...fadeIn, ...cardHover }}
                     whileHover="hover">
                     {/* Enhanced Image Handling */}
-                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center overflow-hidden relative">
                       {article.image_url ? (
-                        <img
+                        <Image
                           src={article.image_url}
-                          alt={article.title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          alt={article.title || "Article image"}
+                          layout="fill"
+                          objectFit="cover"
+                          className="transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
                         <NewspaperIcon className="h-16 w-16 text-gray-400" />

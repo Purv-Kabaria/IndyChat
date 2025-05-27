@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { getArticleById, Article } from "@/functions/articleUtils";
+import { Timestamp } from "firebase/firestore";
 import {
   Loader2,
   ArrowLeft,
@@ -50,24 +50,48 @@ export default function ArticlePage() {
     }
   }, [id]);
 
-  const formatDate = (dateString: any) => {
-    if (!dateString) return "Date not available";
-    if (dateString && typeof dateString.toDate === "function") {
-      return dateString.toDate().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+  const formatDate = (
+    dateInput: Timestamp | string | Date | null | undefined
+  ) => {
+    if (!dateInput) return "Date not available";
+
+    let date: Date;
+
+    if (dateInput instanceof Timestamp) {
+      date = dateInput.toDate();
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else if (typeof dateInput === "string") {
+      date = new Date(dateInput);
+    } else {
+      return "Invalid date format";
     }
-    const date = new Date(dateString);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+
+    if (isNaN(date.getTime())) {
+      try {
+        const potentialObject = JSON.parse(String(dateInput));
+        if (
+          potentialObject &&
+          typeof potentialObject.seconds === "number" &&
+          typeof potentialObject.nanoseconds === "number"
+        ) {
+          date = new Timestamp(
+            potentialObject.seconds,
+            potentialObject.nanoseconds
+          ).toDate();
+        }
+        if (isNaN(date.getTime()))
+          return "Date not available (after re-parse attempt)";
+      } catch {
+        return "Date not available (invalid string)";
+      }
     }
-    return "Date not available";
+
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   if (loading) {
@@ -128,7 +152,7 @@ export default function ArticlePage() {
               className="z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
-            
+
             <div className="absolute inset-0 z-20 flex flex-col justify-end items-center text-center p-6 md:p-12 text-white">
               <div className="max-w-3xl">
                 {article.category && (
@@ -197,9 +221,14 @@ export default function ArticlePage() {
             </header>
           )}
 
-          {/* TEMPORARILY SIMPLIFIED FOR DEBUGGING THE BACK BUTTON */}
-          <article className={`bg-white shadow-xl rounded-lg overflow-hidden ${article.image_url ? '' : ''}`}> 
-            <div className={`p-6 md:p-8 lg:p-10 ${!article.image_url ? 'pt-0' : ''}`}> 
+          <article
+            className={`bg-white shadow-xl rounded-lg overflow-hidden ${
+              article.image_url ? "" : ""
+            }`}>
+            <div
+              className={`p-6 md:p-8 lg:p-10 ${
+                !article.image_url ? "pt-0" : ""
+              }`}>
               <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
                 {contentParagraphs.map((paragraph, index) => (
                   <p key={index}>{paragraph}</p>

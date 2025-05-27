@@ -52,9 +52,6 @@ export function EditArticleDialog({
   const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(
     undefined
   );
-  const [currentImagePublicId, setCurrentImagePublicId] = useState<
-    string | undefined
-  >(undefined);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -65,7 +62,6 @@ export function EditArticleDialog({
       setContent(article.content || "");
       setCategory(article.category || "");
       setCurrentImageUrl(article.image_url || undefined);
-      setCurrentImagePublicId(article.image_public_id || undefined);
       setNewImageFile(null);
       setRemoveCurrentImage(false);
     } else {
@@ -73,7 +69,6 @@ export function EditArticleDialog({
       setContent("");
       setCategory("");
       setCurrentImageUrl(undefined);
-      setCurrentImagePublicId(undefined);
       setNewImageFile(null);
       setRemoveCurrentImage(false);
     }
@@ -84,11 +79,9 @@ export function EditArticleDialog({
       setNewImageFile(e.target.files[0]);
       setRemoveCurrentImage(false);
       setCurrentImageUrl(URL.createObjectURL(e.target.files[0]));
-      setCurrentImagePublicId(undefined);
     } else {
       setNewImageFile(null);
       setCurrentImageUrl(article?.image_url || undefined);
-      setCurrentImagePublicId(article?.image_public_id || undefined);
     }
   };
 
@@ -152,8 +145,7 @@ export function EditArticleDialog({
         content,
         category: category || undefined,
         image_url: finalImageUrl === null ? undefined : finalImageUrl,
-        image_public_id:
-          finalImagePublicId === null ? undefined : finalImagePublicId,
+        image_public_id: finalImagePublicId === null ? undefined : finalImagePublicId,
       };
 
       await updateArticle(article.id, articleUpdateData);

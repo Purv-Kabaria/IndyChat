@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Loader2,
   User,
@@ -199,7 +198,6 @@ export default function ComplaintsAdminPage() {
     setDeleting(true);
 
     try {
-      // Delete associated images from Cloudinary first
       if (
         selectedComplaint.image_public_ids &&
         selectedComplaint.image_public_ids.length > 0
@@ -214,19 +212,14 @@ export default function ComplaintsAdminPage() {
               `Successfully initiated deletion for image public_id: ${publicId}`
             );
           } catch (imageError) {
-            // The deleteImageFromCloudinary function logs its own errors,
-            // but we can log a specific context here too.
             console.error(
               `Failed to initiate deletion for image public_id: ${publicId} during complaint deletion.`,
               imageError
             );
-            // Decide if you want to stop the whole process or continue deleting other images/complaint document
-            // For now, we'll log and continue, as the main complaint deletion is important.
           }
         }
       }
 
-      // Then delete the complaint from Firestore
       await deleteComplaint(selectedComplaint.id);
 
       setComplaints(
