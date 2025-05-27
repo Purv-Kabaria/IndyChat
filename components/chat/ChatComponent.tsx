@@ -64,83 +64,119 @@ const extractMessageContent = (content: string): string => {
   return content;
 };
 
+interface MessageContentProps {
+  content: string;
+  onComplaintClick: () => void;
+  onImageClick: (imageUrl: string) => void;
+}
+
 function MessageContent({
   content,
   onComplaintClick,
-}: {
-  content: string;
-  onComplaintClick: () => void;
-}) {
+  onImageClick,
+}: MessageContentProps) {
   const hasComplaintButton = content.includes("<complaint button>");
-  const cleanContent = hasComplaintButton
+  const cleanContentForInitialProcessing = hasComplaintButton
     ? content.replace(/<complaint button>/g, "")
     : content;
 
+  const cloudinaryImageRegex =
+    /(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/[^/]+\/[^\s]+\.(?:jpg|jpeg|png|gif|webp))/gi;
+
+  const parts = cleanContentForInitialProcessing.split(cloudinaryImageRegex);
+
   return (
     <>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({
-            href,
-            children,
-            ...props
-          }: React.HTMLProps<HTMLAnchorElement>) => (
-            <a
-              href={href}
-              {...props}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-secondary hover:underline">
-              {children}
-            </a>
-          ),
-          p: ({ children }: React.HTMLProps<HTMLParagraphElement>) => (
-            <p className="mb-3 last:mb-0">{children}</p>
-          ),
-          ol: ({ children }) => (
-            <ol className="list-decimal list-inside my-3 ml-2">{children}</ol>
-          ),
-          ul: ({ children }) => (
-            <ul className="list-disc list-inside my-3 ml-2">{children}</ul>
-          ),
-          li: ({ children }: React.HTMLProps<HTMLLIElement>) => (
-            <li className="mb-1">{children}</li>
-          ),
-          code: ({
-            inline,
-            className,
-            children,
-            ...props
-          }: React.HTMLProps<HTMLElement> & {
-            inline?: boolean;
-          }) => {
-            const match = /language-(\w+)/.exec(className || "");
-            const language = match?.[1];
-            return !inline ? (
-              <pre
-                className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
-                  language || "none"
-                }`}>
-                <code
-                  className={`block text-primary text-sm font-mono whitespace-pre`}
-                  {...props}>
-                  {children}
-                </code>
-              </pre>
-            ) : (
-              <code
-                className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
-                  className || ""
-                }`}
-                {...props}>
-                {children}
-              </code>
-            );
-          },
-        }}>
-        {cleanContent}
-      </ReactMarkdown>
+      {parts.map((part, index) => {
+        if (part && part.match(cloudinaryImageRegex)) {
+          return (
+            <div
+              key={`cloudinary-img-${index}`}
+              className="my-2 relative w-full max-w-md mx-auto aspect-video cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => onImageClick(part)}>
+              <Image
+                src={part}
+                alt="Cloudinary Image"
+                layout="fill"
+                objectFit="contain"
+                className="rounded-md shadow-md"
+              />
+            </div>
+          );
+        }
+
+        if (part && part.trim() !== "") {
+          return (
+            <ReactMarkdown
+              key={`text-segment-${index}`}
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({
+                  href,
+                  children,
+                  ...props
+                }: React.HTMLProps<HTMLAnchorElement>) => (
+                  <a
+                    href={href}
+                    {...props}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-secondary hover:underline">
+                    {children}
+                  </a>
+                ),
+                p: ({ children }: React.HTMLProps<HTMLParagraphElement>) => (
+                  <p className="mb-3 last:mb-0">{children}</p>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal list-inside my-3 ml-2">
+                    {children}
+                  </ol>
+                ),
+                ul: ({ children }) => (
+                  <ul className="list-disc list-inside my-3 ml-2">
+                    {children}
+                  </ul>
+                ),
+                li: ({ children }: React.HTMLProps<HTMLLIElement>) => (
+                  <li className="mb-1">{children}</li>
+                ),
+                code: ({
+                  inline,
+                  className,
+                  children,
+                  ...props
+                }: React.HTMLProps<HTMLElement> & { inline?: boolean }) => {
+                  const match = /language-(\w+)/.exec(className || "");
+                  const language = match?.[1];
+                  return !inline ? (
+                    <pre
+                      className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
+                        language || "none"
+                      }`}>
+                      <code
+                        className={`block text-primary text-sm font-mono whitespace-pre`}
+                        {...props}>
+                        {children}
+                      </code>
+                    </pre>
+                  ) : (
+                    <code
+                      className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
+                        className || ""
+                      }`}
+                      {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}>
+              {part}
+            </ReactMarkdown>
+          );
+        }
+        return null;
+      })}
 
       {hasComplaintButton && (
         <div className="mt-3">
@@ -189,6 +225,8 @@ export default function ChatComponent() {
     null
   );
   const [isTemporaryChat, setIsTemporaryChat] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
 
   const generateMessageId = useCallback(() => {
     const counter = messageIdCounterRef.current;
@@ -824,15 +862,45 @@ export default function ChatComponent() {
     }
   };
 
+  const openLightbox = (url: string) => {
+    setLightboxImageUrl(url);
+    setIsLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setIsLightboxOpen(false);
+    setLightboxImageUrl(null);
+  };
+
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
-      <div className="absolute top-3 left-3 md:hidden z-50">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-md bg-accent text-primary hover:bg-accent/90 transition-colors">
-          <MenuIcon className="h-5 w-5" />
-        </button>
-      </div>
+      {/* New Mobile Header */}
+      {isMobile && (
+        <header className="fixed top-0 left-0 right-0 h-14 bg-primary text-primary-foreground flex items-center justify-between px-4 shadow-lg z-40">
+          <div className="flex items-center gap-3">
+            <div className="relative h-7 w-7">
+              <Image
+                src="/images/indianapolis.png"
+                alt="Indianapolis Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+            <h1 className="font-semibold text-base">Indy Chat</h1>
+            {isTemporaryChat && (
+              <span className="ml-1.5 px-2 py-0.5 text-[10px] font-medium bg-yellow-400 text-yellow-900 rounded-full">
+                Temp
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-md text-primary-foreground hover:bg-white/20 transition-colors"
+            aria-label="Open menu">
+            <MenuIcon className="h-5 w-5" />
+          </button>
+        </header>
+      )}
 
       <ChatSidebar
         sidebarOpen={sidebarOpen}
@@ -848,9 +916,15 @@ export default function ChatComponent() {
         onDeleteConversation={handleDeleteConversation}
       />
 
-      <div className="flex-1 flex flex-col bg-background h-full overflow-hidden">
+      <div
+        className={`flex-1 flex flex-col bg-background h-full overflow-hidden ${
+          isMobile ? "pt-14" : ""
+        }`}>
         <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 md:px-8">
-          <div className="max-w-3xl mx-auto space-y-6 pt-16 md:pt-12 pb-24">
+          <div
+            className={`max-w-3xl mx-auto space-y-6 ${
+              isMobile ? "pt-4" : "pt-16 md:pt-12"
+            } pb-24`}>
             {processedMessages.map((message) => (
               <motion.div
                 key={message.id}
@@ -886,6 +960,7 @@ export default function ChatComponent() {
                               setComplaintType("complaint");
                               setShowComplaintForm(true);
                             }}
+                            onImageClick={openLightbox}
                           />
 
                           {!message.content.includes("<iframe") &&
@@ -1111,6 +1186,29 @@ export default function ChatComponent() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {isLightboxOpen && lightboxImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 cursor-zoom-out"
+          onClick={closeLightbox}>
+          <div
+            className="relative max-w-[90vw] max-h-[90vh] bg-white p-2 rounded-lg shadow-xl overflow-auto cursor-default"
+            onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={closeLightbox}
+              className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-black/70 z-10"
+              aria-label="Close image view">
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={lightboxImageUrl}
+              alt="Enlarged view"
+              className="block max-w-full max-h-full object-contain rounded"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
