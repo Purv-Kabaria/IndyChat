@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { auth } from "@/lib/firebase";
-import {
-  Loader2,
-  Upload,
-  File,
-  Trash2,
-  Info,
-  RefreshCw,
-} from "lucide-react";
+import { Loader2, Upload, File, Trash2, Info, RefreshCw } from "lucide-react";
 
 type Document = {
   id: string;
@@ -24,8 +17,7 @@ type Document = {
   data_source_type?: string;
 };
 
-const DIFY_API_URL =
-  process.env.DIFY_API_URL || "https://api.dify.ai/v1";
+const DIFY_API_URL = process.env.DIFY_API_URL || "https://api.dify.ai/v1";
 const DIFY_API_KEY = process.env.NEXT_PUBLIC_DIFY_KNOWLEDGE_BASE_API_KEY || "";
 const DIFY_DATASET_ID = process.env.NEXT_PUBLIC_DIFY_DATASET_ID || "";
 
@@ -85,8 +77,13 @@ export default function DocumentsPage() {
       setKnowledgeBaseStatus("Connected to Knowledge Base");
     } catch (error: unknown) {
       console.error("Error loading documents:", error);
-      if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
-        const typedError = error as {code: string, message: string};
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        "message" in error
+      ) {
+        const typedError = error as { code: string; message: string };
         setError(`Dify API error (${typedError.code}): ${typedError.message}`);
       } else {
         setError(
@@ -301,7 +298,9 @@ export default function DocumentsPage() {
       setSuccess("Document deleted successfully from knowledge base");
     } catch (error: unknown) {
       console.error("Error deleting document:", error);
-      setError(error instanceof Error ? error.message : "Failed to delete document");
+      setError(
+        error instanceof Error ? error.message : "Failed to delete document"
+      );
     } finally {
       setLoading(false);
     }
@@ -355,7 +354,7 @@ export default function DocumentsPage() {
     <div className="min-h-[100dvh] bg-gray-50">
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-accent">
             Knowledge Base Documents
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -366,7 +365,9 @@ export default function DocumentsPage() {
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Knowledge Base</h2>
+              <h2 className="text-xl font-semibold text-accent">
+                Knowledge Base
+              </h2>
               {knowledgeBaseStatus && (
                 <p className="text-sm text-gray-500 mt-1 flex items-center flex-wrap">
                   <Info className="h-3.5 w-3.5 mr-1 text-green-600 flex-shrink-0" />
@@ -450,7 +451,8 @@ export default function DocumentsPage() {
                   <File className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                   <p>No documents in knowledge base yet</p>
                   <p className="text-sm mt-1">
-                    Upload your first document to enhance your AI&apos;s knowledge
+                    Upload your first document to enhance your AI&apos;s
+                    knowledge
                   </p>
                 </div>
               ) : (

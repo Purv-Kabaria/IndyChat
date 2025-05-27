@@ -191,33 +191,38 @@ export async function deleteArticleFirestore(articleId: string): Promise<void> {
 }
 
 export async function deleteImageFromCloudinary(
-  imageUrl: string | undefined
+  publicId: string | undefined
 ): Promise<void> {
-  if (!imageUrl) {
-    console.log("No image URL provided, skipping Cloudinary deletion.");
+  if (!publicId) {
+    console.log("No public_id provided, skipping Cloudinary deletion call.");
     return;
   }
 
-  const match = imageUrl.match(/upload\/(?:v\d+\/)?(?:([^\/]+)\/)?([^\.]+)\.?/);
-  const publicIdWithFolder =
-    match && match[1] && match[2]
-      ? `${match[1]}/${match[2]}`
-      : match && match[2]
-      ? match[2]
-      : null;
+  try {
+    const response = await fetch("/api/delete-cloudinary-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ public_id: publicId }),
+    });
 
-  if (!publicIdWithFolder) {
-    console.warn("Could not extract public_id from Cloudinary URL:", imageUrl);
-    return;
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      console.error(
+        "Backend failed to delete Cloudinary image:",
+        responseData.message || response.statusText
+      );
+      throw new Error(
+        responseData.message ||
+          `Failed to delete image from Cloudinary. Status: ${response.status}`
+      );
+    }
+
+    console.log(
+      "Image deletion successfully processed by backend:",
+      responseData.message
+    );
+  } catch (error) {
+    console.error("Error calling backend to delete Cloudinary image:", error);
   }
-
-  console.log(
-    `Placeholder: Attempting to delete image with public_id: ${publicIdWithFolder} from Cloudinary.`
-  );
-  console.warn(
-    `IMPORTANT: Deleting images from Cloudinary requires a secure backend (e.g., Firebase Function) 
-     using your Cloudinary API Key and Secret. This client-side function is a placeholder 
-     and will NOT actually delete the image from Cloudinary to prevent exposing secrets.`
-  );
-  return Promise.resolve();
 }

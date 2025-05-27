@@ -138,10 +138,10 @@ export default function NewsPage() {
                     variants={{ ...fadeIn, ...cardHover }}
                     whileHover="hover">
                     {/* Optional Image */}
-                    {article.imageUrl && (
+                    {article.image_url && (
                       <div className="w-full h-48 overflow-hidden">
                         <img
-                          src={article.imageUrl}
+                          src={article.image_url}
                           alt={article.title}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
@@ -157,8 +157,8 @@ export default function NewsPage() {
                       <div className="flex items-center text-xs text-gray-500 mb-3">
                         <CalendarDaysIcon className="h-4 w-4 mr-1.5" />
                         <span>
-                          {article.createdAt
-                            ? new Date(article.createdAt).toLocaleDateString()
+                          {article.created_at
+                            ? new Date(article.created_at).toLocaleDateString()
                             : "Date not available"}
                         </span>
                       </div>

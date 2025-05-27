@@ -11,12 +11,14 @@ import {
   ArrowUpDown,
   Trash2,
   AlertCircle,
+  RefreshCcw,
 } from "lucide-react";
 import {
   getAllComplaints,
   deleteComplaint,
   ComplaintStatus,
 } from "@/functions/complaintUtils";
+import { deleteImageFromCloudinary } from "@/functions/articleUtils";
 import { Complaint as ComplaintBaseType } from "@/functions/complaintUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +77,7 @@ export default function ComplaintsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  const loadComplaints = async () => {
+  const fetchComplaintsList = async () => {
     setLoading(true);
     try {
       const complaintsData = await getAllComplaints();
@@ -86,17 +88,18 @@ export default function ComplaintsAdminPage() {
       console.error("Error loading complaints:", error);
       toast({
         title: "Error loading complaints",
-        description: "You may not have admin permissions to view this page.",
+        description:
+          (error as Error).message ||
+          "You may not have admin permissions to view this page.",
         variant: "destructive",
       });
-      router.push("/");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadComplaints();
+    fetchComplaintsList();
   }, [router]);
 
   const filteredComplaints = complaints
@@ -196,6 +199,34 @@ export default function ComplaintsAdminPage() {
     setDeleting(true);
 
     try {
+      // Delete associated images from Cloudinary first
+      if (
+        selectedComplaint.image_public_ids &&
+        selectedComplaint.image_public_ids.length > 0
+      ) {
+        console.log(
+          `Attempting to delete ${selectedComplaint.image_public_ids.length} images from Cloudinary for complaint ${selectedComplaint.id}`
+        );
+        for (const publicId of selectedComplaint.image_public_ids) {
+          try {
+            await deleteImageFromCloudinary(publicId);
+            console.log(
+              `Successfully initiated deletion for image public_id: ${publicId}`
+            );
+          } catch (imageError) {
+            // The deleteImageFromCloudinary function logs its own errors,
+            // but we can log a specific context here too.
+            console.error(
+              `Failed to initiate deletion for image public_id: ${publicId} during complaint deletion.`,
+              imageError
+            );
+            // Decide if you want to stop the whole process or continue deleting other images/complaint document
+            // For now, we'll log and continue, as the main complaint deletion is important.
+          }
+        }
+      }
+
+      // Then delete the complaint from Firestore
       await deleteComplaint(selectedComplaint.id);
 
       setComplaints(
@@ -313,7 +344,7 @@ export default function ComplaintsAdminPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-2 text-accent">
             Complaints & Reports Dashboard
@@ -322,6 +353,14 @@ export default function ComplaintsAdminPage() {
             Manage user complaints, reports, and feedback.
           </p>
         </div>
+        <Button
+          onClick={fetchComplaintsList}
+          variant="outline"
+          size="icon"
+          className="hover:bg-accent/10 flex-shrink-0"
+          disabled={loading}>
+          <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        </Button>
       </div>
 
       {/* Filters and search */}
@@ -577,7 +616,7 @@ export default function ComplaintsAdminPage() {
           isOpen={updateDialogOpen}
           onOpenChange={setUpdateDialogOpen}
           onComplaintUpdated={() => {
-            loadComplaints();
+            fetchComplaintsList();
             setSelectedComplaint(null);
           }}
         />

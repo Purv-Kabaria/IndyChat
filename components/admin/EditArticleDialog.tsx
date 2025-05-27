@@ -23,7 +23,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Loader2, XCircle, UploadCloud } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import {
   Select,
@@ -52,6 +52,9 @@ export function EditArticleDialog({
   const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(
     undefined
   );
+  const [currentImagePublicId, setCurrentImagePublicId] = useState<
+    string | undefined
+  >(undefined);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -61,7 +64,8 @@ export function EditArticleDialog({
       setTitle(article.title || "");
       setContent(article.content || "");
       setCategory(article.category || "");
-      setCurrentImageUrl(article.imageUrl || undefined);
+      setCurrentImageUrl(article.image_url || undefined);
+      setCurrentImagePublicId(article.image_public_id || undefined);
       setNewImageFile(null);
       setRemoveCurrentImage(false);
     } else {
@@ -69,6 +73,7 @@ export function EditArticleDialog({
       setContent("");
       setCategory("");
       setCurrentImageUrl(undefined);
+      setCurrentImagePublicId(undefined);
       setNewImageFile(null);
       setRemoveCurrentImage(false);
     }
@@ -79,10 +84,11 @@ export function EditArticleDialog({
       setNewImageFile(e.target.files[0]);
       setRemoveCurrentImage(false);
       setCurrentImageUrl(URL.createObjectURL(e.target.files[0]));
+      setCurrentImagePublicId(undefined);
     } else {
       setNewImageFile(null);
-
-      setCurrentImageUrl(article?.imageUrl || undefined);
+      setCurrentImageUrl(article?.image_url || undefined);
+      setCurrentImagePublicId(article?.image_public_id || undefined);
     }
   };
 
@@ -100,8 +106,9 @@ export function EditArticleDialog({
     }
 
     setIsUpdating(true);
-    let finalImageUrl: string | undefined | null = article.imageUrl;
-    const oldImageUrl = article.imageUrl;
+    let finalImageUrl: string | undefined | null = article.image_url;
+    let finalImagePublicId: string | undefined | null = article.image_public_id;
+    const oldImagePublicId = article.image_public_id;
 
     try {
       if (newImageFile) {
@@ -118,11 +125,12 @@ export function EditArticleDialog({
         );
         const data = await response.json();
 
-        if (data.secure_url) {
+        if (data.secure_url && data.public_id) {
           finalImageUrl = data.secure_url;
+          finalImagePublicId = data.public_id;
 
-          if (oldImageUrl && oldImageUrl !== finalImageUrl) {
-            await deleteImageFromCloudinary(oldImageUrl);
+          if (oldImagePublicId && oldImagePublicId !== finalImagePublicId) {
+            await deleteImageFromCloudinary(oldImagePublicId);
           }
         } else {
           toast({
@@ -130,20 +138,22 @@ export function EditArticleDialog({
             description: data.error?.message || "Could not upload new image.",
             variant: "default",
           });
-
-          setIsUpdating(false);
-          return;
         }
-      } else if (removeCurrentImage && oldImageUrl) {
-        await deleteImageFromCloudinary(oldImageUrl);
+      } else if (removeCurrentImage && oldImagePublicId) {
+        await deleteImageFromCloudinary(oldImagePublicId);
         finalImageUrl = null;
+        finalImagePublicId = null;
       }
 
-      const articleUpdateData: Partial<Omit<Article, "id" | "createdAt">> = {
+      const articleUpdateData: Partial<
+        Omit<Article, "id" | "created_at" | "author_id" | "author_name">
+      > = {
         title,
         content,
         category: category || undefined,
-        imageUrl: finalImageUrl === null ? undefined : finalImageUrl,
+        image_url: finalImageUrl === null ? undefined : finalImageUrl,
+        image_public_id:
+          finalImagePublicId === null ? undefined : finalImagePublicId,
       };
 
       await updateArticle(article.id, articleUpdateData);
@@ -215,7 +225,11 @@ export function EditArticleDialog({
               className="text-sm font-medium text-gray-700">
               Category
             </Label>
-            <Select value={category} onValueChange={(value) => setCategory(value as ArticleCategory | "")} >
+            <Select
+              value={category}
+              onValueChange={(value) =>
+                setCategory(value as ArticleCategory | "")
+              }>
               <SelectTrigger className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent focus:ring-accent">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
@@ -224,8 +238,7 @@ export function EditArticleDialog({
                   <SelectItem
                     key={cat}
                     value={cat}
-                    className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer"
-                  >
+                    className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
                     {cat}
                   </SelectItem>
                 ))}

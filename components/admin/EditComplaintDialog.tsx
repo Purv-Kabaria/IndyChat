@@ -25,9 +25,8 @@ import {
   ComplaintStatus,
   ComplaintPriority,
 } from "@/functions/complaintUtils";
-import type { Complaint as ComplaintBaseType } from "@/functions/complaintUtils"; // Ensure this path is correct
+import type { Complaint as ComplaintBaseType } from "@/functions/complaintUtils";
 
-// Copied from app/admin/complaints/page.tsx - consider moving to a shared types file
 type ExtendedComplaint = ComplaintBaseType & {
   profiles?: {
     first_name: string;
@@ -56,7 +55,7 @@ export function EditComplaintDialog({
   onComplaintUpdated,
 }: EditComplaintDialogProps) {
   const [newStatus, setNewStatus] = React.useState<ComplaintStatus>("open");
-  const [newPriority, setNewPriority] = React.useState<string>("medium"); // Or ComplaintPriority if strictly typed
+  const [newPriority, setNewPriority] = React.useState<string>("medium");
   const [resolutionNotes, setResolutionNotes] = React.useState("");
   const [isProcessingUpdate, setIsProcessingUpdate] = React.useState(false);
 
@@ -85,13 +84,15 @@ export function EditComplaintDialog({
         title: "Complaint updated",
         description: `Status changed to ${newStatus} and priority set to ${newPriority}.`,
       });
-      onComplaintUpdated(); // Refresh the list in the parent component
-      onOpenChange(false); // Close the dialog
+      onComplaintUpdated();
+      onOpenChange(false);
     } catch (error) {
       console.error("Error updating complaint:", error);
       toast({
         title: "Error updating complaint",
-        description: (error as Error).message || "There was a problem updating the complaint.",
+        description:
+          (error as Error).message ||
+          "There was a problem updating the complaint.",
         variant: "destructive",
       });
     } finally {
@@ -100,7 +101,7 @@ export function EditComplaintDialog({
   };
 
   if (!complaint) {
-    return null; // Or some fallback UI if the dialog is open without a complaint
+    return null;
   }
 
   return (
@@ -117,9 +118,7 @@ export function EditComplaintDialog({
 
         <div className="space-y-5 py-2">
           <div className="grid gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
-            <h3 className="font-semibold text-gray-900">
-              {complaint.subject}
-            </h3>
+            <h3 className="font-semibold text-gray-900">{complaint.subject}</h3>
             <p className="text-sm text-gray-600 mt-1 max-h-24 overflow-y-auto">
               {complaint.description}
             </p>
@@ -134,34 +133,29 @@ export function EditComplaintDialog({
             <label className="text-sm font-medium text-gray-700">Status</label>
             <Select
               value={newStatus}
-              onValueChange={(value) => setNewStatus(value as ComplaintStatus)}
-            >
+              onValueChange={(value) => setNewStatus(value as ComplaintStatus)}>
               <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent className="bg-white border border-gray-200 shadow-md">
                 <SelectItem
                   value="open"
-                  className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer"
-                >
+                  className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
                   Open
                 </SelectItem>
                 <SelectItem
                   value="under_review"
-                  className="text-yellow-700 hover:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-800 cursor-pointer"
-                >
+                  className="text-yellow-700 hover:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-800 cursor-pointer">
                   Under Review
                 </SelectItem>
                 <SelectItem
                   value="resolved"
-                  className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer"
-                >
+                  className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
                   Resolved
                 </SelectItem>
                 <SelectItem
                   value="closed"
-                  className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer"
-                >
+                  className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
                   Closed
                 </SelectItem>
               </SelectContent>
@@ -169,37 +163,34 @@ export function EditComplaintDialog({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-gray-700">Priority</label>
+            <label className="text-sm font-medium text-gray-700">
+              Priority
+            </label>
             <Select
               value={newPriority}
-              onValueChange={(value) => setNewPriority(value)}
-            >
+              onValueChange={(value) => setNewPriority(value)}>
               <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
               <SelectContent className="bg-white border border-gray-200 shadow-md">
                 <SelectItem
                   value="low"
-                  className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer"
-                >
+                  className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
                   Low
                 </SelectItem>
                 <SelectItem
                   value="medium"
-                  className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer"
-                >
+                  className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
                   Medium
                 </SelectItem>
                 <SelectItem
                   value="high"
-                  className="text-orange-700 hover:bg-orange-50 focus:bg-orange-50 focus:text-orange-800 cursor-pointer"
-                >
+                  className="text-orange-700 hover:bg-orange-50 focus:bg-orange-50 focus:text-orange-800 cursor-pointer">
                   High
                 </SelectItem>
                 <SelectItem
                   value="urgent"
-                  className="text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-800 cursor-pointer"
-                >
+                  className="text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-800 cursor-pointer">
                   Urgent
                 </SelectItem>
               </SelectContent>
@@ -231,8 +222,7 @@ export function EditComplaintDialog({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity"
-                  >
+                    className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity">
                     <img
                       src={url}
                       alt={`Complaint image ${index + 1}`}
@@ -249,15 +239,13 @@ export function EditComplaintDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
+            className="border-gray-300 text-gray-700 hover:bg-gray-50">
             Cancel
           </Button>
           <Button
             onClick={handleUpdateStatus}
             disabled={isProcessingUpdate}
-            className="bg-accent text-white hover:bg-accent-dark"
-          >
+            className="bg-accent text-white hover:bg-accent-dark">
             {isProcessingUpdate ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -271,4 +259,4 @@ export function EditComplaintDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}

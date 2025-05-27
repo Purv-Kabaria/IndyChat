@@ -58,6 +58,7 @@ export default function AdminArticlesPage() {
   const [articleToDelete, setArticleToDelete] = useState<Article | null>(null);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [imageInputKey, setImageInputKey] = useState<string>(Date.now().toString());
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -107,6 +108,7 @@ export default function AdminArticlesPage() {
 
     setIsSubmitting(true);
     let uploadedImageUrl: string | undefined = undefined;
+    let uploadedImagePublicId: string | undefined = undefined;
 
     try {
       if (imageFile) {
@@ -121,8 +123,9 @@ export default function AdminArticlesPage() {
           { method: "POST", body: formData }
         );
         const data = await response.json();
-        if (data.secure_url) {
+        if (data.secure_url && data.public_id) {
           uploadedImageUrl = data.secure_url;
+          uploadedImagePublicId = data.public_id;
         } else {
           console.warn("Cloudinary upload failed:", data);
           toast({
@@ -132,19 +135,21 @@ export default function AdminArticlesPage() {
           });
         }
       }
-      const articleData: Omit<Article, "id" | "createdAt" | "updatedAt"> = {
+      const articleData = {
         title,
         content,
         category: category || undefined,
-        imageUrl: uploadedImageUrl,
+        image_url: uploadedImageUrl,
+        image_public_id: uploadedImagePublicId,
       };
-      const newArticle = await addArticle(articleData);
+      const newArticle = await addArticle(articleData as any);
       await refreshArticlesList();
       toast({ title: "Article Created", description: `"${title}" published.` });
       setTitle("");
       setContent("");
       setCategory("");
       setImageFile(null);
+      setImageInputKey(Date.now().toString());
     } catch (error) {
       toast({
         title: "Failed to create article",
@@ -160,7 +165,13 @@ export default function AdminArticlesPage() {
     if (!articleToDelete || !articleToDelete.id) return;
     setLoading(true);
     try {
-      await deleteImageFromCloudinary(articleToDelete.imageUrl);
+      if (articleToDelete.image_public_id) {
+        await deleteImageFromCloudinary(articleToDelete.image_public_id);
+      } else if (articleToDelete.image_url) {
+        console.warn(
+          "Attempting to delete image using URL, but public_id is preferred. Update deleteImageFromCloudinary if it relies on public_id only."
+        );
+      }
       await deleteArticleFirestore(articleToDelete.id);
       await refreshArticlesList();
       toast({
@@ -182,12 +193,14 @@ export default function AdminArticlesPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6 pb-4 border-b">
-        <h1 className="text-3xl font-bold font-cal text-accent">
-          Manage News Articles
-        </h1>
-        <h5 className="text-sm text-gray-500">
-          Create, edit, and delete news articles.
-        </h5>
+        <div className="flex-col items-center gap-2">
+          <h1 className="text-3xl font-bold font-cal text-accent">
+            Manage News Articles
+          </h1>
+          <h5 className="text-sm text-gray-500">
+            Create, edit, and delete news articles.
+          </h5>
+        </div>
       </div>
 
       <section className="mb-12 bg-white p-8 rounded-lg shadow-md">
@@ -232,7 +245,11 @@ export default function AdminArticlesPage() {
               className="text-sm font-medium text-gray-700">
               Category
             </Label>
-            <Select value={category} onValueChange={(value) => setCategory(value as ArticleCategory | "")} >
+            <Select
+              value={category}
+              onValueChange={(value) =>
+                setCategory(value as ArticleCategory | "")
+              }>
               <SelectTrigger className="w-full bg-white border-gray-300 hover:border-accent focus:border-accent focus:ring-accent">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
@@ -241,8 +258,7 @@ export default function AdminArticlesPage() {
                   <SelectItem
                     key={cat}
                     value={cat}
-                    className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer"
-                  >
+                    className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
                     {cat}
                   </SelectItem>
                 ))}
@@ -257,6 +273,7 @@ export default function AdminArticlesPage() {
             </Label>
             <Input
               id="imageUpload"
+              key={imageInputKey}
               type="file"
               accept="image/*"
               onChange={(e) =>
@@ -292,7 +309,7 @@ export default function AdminArticlesPage() {
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold font-cal text-gray-800 mb-6">
+        <h2 className="text-2xl font-semibold font-cal text-accent mb-6">
           Existing Articles
         </h2>
         {loadingArticles ? (
@@ -320,8 +337,8 @@ export default function AdminArticlesPage() {
                   </h3>
                   <p className="text-sm text-gray-500">
                     Category: {article.category || "N/A"} | Created:{" "}
-                    {article.createdAt
-                      ? new Date(article.createdAt).toLocaleDateString()
+                    {article.created_at
+                      ? new Date(article.created_at).toLocaleDateString()
                       : "N/A"}
                   </p>
                 </div>
@@ -347,15 +364,14 @@ export default function AdminArticlesPage() {
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="bg-white shadow-lg border-0">
-                      <AlertDialogHeader className="border-b pb-4 mb-4">
+                      <AlertDialogHeader className="border-b">
                         <AlertDialogTitle className="text-red-600 flex items-center gap-2">
-                          <AlertCircle className="h-5 w-5" /> Are you absolutely sure?
+                          <AlertCircle className="h-5 w-5" /> Are you absolutely
+                          sure?
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-gray-600">
                           This action cannot be undone. This will permanently
-                          delete the article "{articleToDelete?.title}". The
-                          image will remain on Cloudinary as a manual cleanup
-                          step is required for it.
+                          delete the article "{articleToDelete?.title}".
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter className="border-t pt-4 mt-4 gap-3">

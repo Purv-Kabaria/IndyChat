@@ -35,6 +35,7 @@ export interface Complaint {
   assigned_to?: string | null;
   location?: string;
   image_urls?: string[];
+  image_public_ids?: string[];
 }
 
 export interface EnrichedComplaint extends Complaint {
@@ -49,93 +50,83 @@ export interface EnrichedComplaint extends Complaint {
   } | null;
 }
 
-export async function submitComplaint(
-  complaint: Omit<Complaint, "id" | "created_at" | "updated_at"> & {
-    images?: FileList | null;
-  }
-): Promise<Complaint> {
+interface SubmitComplaintData {
+  user_id: string;
+  type: ComplaintType;
+  subject: string;
+  description: string;
+  images: FileList | null;
+  location?: string;
+}
+
+export const submitComplaint = async (
+  data: SubmitComplaintData
+): Promise<void> => {
   try {
-    if (!complaint.user_id) {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error("User must be logged in to submit a complaint");
-      }
-      complaint.user_id = currentUser.uid;
-    }
-
-    if (!complaint.status) complaint.status = "open";
-    if (!complaint.priority) complaint.priority = "medium";
-
-    const complaintsRef = collection(db, "complaints");
-
-    const { images, ...complaintData } = complaint;
-
     const imageUrls: string[] = [];
+    const imagePublicIds: string[] = [];
 
-    if (images && images.length > 0) {
-      // Cloudinary details - REMINDER: User provided these.
-      const cloudName = "dtb5nuv3m";
-      const uploadPreset = "indychat";
+    if (data.images && data.images.length > 0) {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i];
+      if (!cloudName || !uploadPreset) {
+        console.error("Cloudinary environment variables not set.");
+        throw new Error("File upload configuration is missing.");
+      }
+
+      for (const file of Array.from(data.images)) {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", uploadPreset);
+        formData.append("folder", "complaints");
 
-        try {
-          const response = await fetch(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            {
-              method: "POST",
-              body: formData,
-            }
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: "POST", body: formData }
+        );
+
+        const result = await response.json();
+        if (result.secure_url && result.public_id) {
+          imageUrls.push(result.secure_url);
+          imagePublicIds.push(result.public_id);
+        } else {
+          console.warn(
+            "A file failed to upload to Cloudinary:",
+            result.error?.message
           );
-          const data = await response.json();
-          if (data.secure_url) {
-            imageUrls.push(data.secure_url);
-          } else {
-            console.warn(
-              "Cloudinary upload failed for a file, no secure_url:",
-              data
-            );
-            // Optionally, throw an error here or handle it more gracefully
-          }
-        } catch (uploadError) {
-          console.error("Error uploading image to Cloudinary:", uploadError);
-          // Optionally, re-throw or collect errors to inform the user
-          // For simplicity, we'll continue trying to upload other images
         }
       }
     }
 
-    const docRef = await addDoc(complaintsRef, {
-      ...complaintData,
-      image_urls: imageUrls,
+    const complaintDocData: any = {
+      user_id: data.user_id,
+      type: data.type,
+      subject: data.subject,
+      description: data.description,
+      status: "open",
+      priority: "medium", // Default priority
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
-    });
+    };
 
-    const docSnap = await getDoc(doc(db, "complaints", docRef.id));
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        id: docRef.id,
-        ...data,
-        created_at: data.created_at
-          ? (data.created_at as Timestamp).toDate().toISOString()
-          : undefined,
-        updated_at: data.updated_at
-          ? (data.updated_at as Timestamp).toDate().toISOString()
-          : undefined,
-      } as Complaint;
+    if (imageUrls.length > 0) {
+      complaintDocData.image_urls = imageUrls;
     }
-    throw new Error("Failed to retrieve the created complaint");
+    if (imagePublicIds.length > 0) {
+      complaintDocData.image_public_ids = imagePublicIds;
+    }
+    if (data.location && data.location.trim() !== "") { // Check for non-empty string
+      complaintDocData.location = data.location;
+    }
+    // Optional fields like resolved_at, resolution_notes, assigned_to will be omitted if not set
+
+    await addDoc(collection(db, "complaints"), complaintDocData);
   } catch (error) {
-    console.error("Error submitting complaint (client):", error);
+    console.error("Error submitting complaint: ", error);
     throw error;
   }
-}
+};
 
 export async function getUserComplaints(): Promise<Complaint[]> {
   try {

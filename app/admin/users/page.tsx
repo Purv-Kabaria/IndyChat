@@ -9,10 +9,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  RefreshCcw,
 } from "lucide-react";
 import Image from "next/image";
 import { getAllUsers, UserProfile, updateUserRole } from "@/lib/auth-utils";
 import { auth } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -23,21 +25,22 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const usersData = await getAllUsers();
-        if (usersData) {
-          setUsers(usersData);
-        }
-      } catch (error) {
-        console.error("Error loading users:", error);
-      } finally {
-        setLoading(false);
+  const fetchUsersList = async () => {
+    setLoading(true);
+    try {
+      const usersData = await getAllUsers();
+      if (usersData) {
+        setUsers(usersData);
       }
-    };
+    } catch (error) {
+      console.error("Error loading users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadUsers();
+  useEffect(() => {
+    fetchUsersList();
   }, []);
 
   const handleRoleToggle = async (userId: string, currentRole: string) => {
@@ -102,15 +105,28 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-[100dvh] bg-gray-50">
       <div className="p-4 sm:p-6 lg:p-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage users and system settings
-          </p>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-accent">Admin Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage users and system settings
+            </p>
+          </div>
+          <Button 
+            onClick={fetchUsersList} 
+            variant="outline" 
+            size="icon" 
+            className="hover:bg-accent/10 flex-shrink-0"
+            disabled={loading}
+          >
+            <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <h2 className="text-xl font-semibold mb-6">User Management</h2>
+          <h2 className="text-xl text-accent font-semibold mb-6">
+            User Management
+          </h2>
 
           <div className="relative mb-6">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
