@@ -14,10 +14,8 @@ import {
 } from "lucide-react";
 import {
   getAllComplaints,
-  updateComplaintStatus,
   deleteComplaint,
   ComplaintStatus,
-  ComplaintPriority,
 } from "@/functions/complaintUtils";
 import { Complaint as ComplaintBaseType } from "@/functions/complaintUtils";
 import { Button } from "@/components/ui/button";
@@ -31,14 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -48,8 +38,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
+import { EditComplaintDialog } from "@/components/admin/EditComplaintDialog";
 
 type ExtendedComplaint = ComplaintBaseType & {
   profiles?: {
@@ -80,35 +70,32 @@ export default function ComplaintsAdminPage() {
     useState<ExtendedComplaint | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<ComplaintStatus>("open");
-  const [newPriority, setNewPriority] = useState<string>("medium");
-  const [resolutionNotes, setResolutionNotes] = useState("");
-  const [processing, setProcessing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  useEffect(() => {
-    const loadComplaints = async () => {
-      try {
-        const complaintsData = await getAllComplaints();
-        if (complaintsData) {
-          setComplaints(complaintsData as ExtendedComplaint[]);
-        }
-      } catch (error) {
-        console.error("Error loading complaints:", error);
-        toast({
-          title: "Error loading complaints",
-          description: "You may not have admin permissions to view this page.",
-          variant: "destructive",
-        });
-        router.push("/");
-      } finally {
-        setLoading(false);
+  const loadComplaints = async () => {
+    setLoading(true);
+    try {
+      const complaintsData = await getAllComplaints();
+      if (complaintsData) {
+        setComplaints(complaintsData as ExtendedComplaint[]);
       }
-    };
+    } catch (error) {
+      console.error("Error loading complaints:", error);
+      toast({
+        title: "Error loading complaints",
+        description: "You may not have admin permissions to view this page.",
+        variant: "destructive",
+      });
+      router.push("/");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadComplaints();
   }, [router]);
 
@@ -200,45 +187,6 @@ export default function ComplaintsAdminPage() {
     } else {
       setSortField(field);
       setSortDirection("desc");
-    }
-  };
-
-  const handleUpdateStatus = async () => {
-    if (!selectedComplaint) return;
-
-    setProcessing(true);
-
-    try {
-      const updatedComplaint = await updateComplaintStatus(
-        selectedComplaint.id!,
-        newStatus,
-        resolutionNotes,
-        newPriority as ComplaintPriority
-      );
-
-      setComplaints(
-        complaints.map((complaint) =>
-          complaint.id === updatedComplaint.id
-            ? { ...complaint, ...updatedComplaint }
-            : complaint
-        )
-      );
-
-      toast({
-        title: "Complaint updated",
-        description: `Status changed to ${newStatus} and priority set to ${newPriority}.`,
-      });
-
-      setUpdateDialogOpen(false);
-    } catch (error) {
-      console.error("Error updating complaint:", error);
-      toast({
-        title: "Error updating complaint",
-        description: "There was a problem updating the complaint.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessing(false);
     }
   };
 
@@ -367,20 +315,13 @@ export default function ComplaintsAdminPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-2">
+          <h1 className="text-2xl font-bold mb-2 text-accent">
             Complaints & Reports Dashboard
           </h1>
           <p className="text-gray-600 mb-4">
             Manage user complaints, reports, and feedback.
           </p>
         </div>
-        <Link href="/admin/users">
-          <Button
-            variant="outline"
-            className="mt-2 md:mt-0 hover:bg-accent hover:text-white">
-            Back to Admin Dashboard
-          </Button>
-        </Link>
       </div>
 
       {/* Filters and search */}
@@ -571,13 +512,6 @@ export default function ComplaintsAdminPage() {
                           size="sm"
                           onClick={() => {
                             setSelectedComplaint(complaint);
-                            setNewStatus(
-                              (complaint.status as ComplaintStatus) || "open"
-                            );
-                            setNewPriority(complaint.priority || "medium");
-                            setResolutionNotes(
-                              complaint.resolution_notes || ""
-                            );
                             setUpdateDialogOpen(true);
                           }}
                           className="hover:bg-accent/10">
@@ -636,170 +570,18 @@ export default function ComplaintsAdminPage() {
         </div>
       )}
 
-      {/* Update Status Dialog */}
-      <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
-        <DialogContent className="bg-white border-0 shadow-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4 mb-4">
-            <DialogTitle className="text-xl font-bold text-accent-dark">
-              Update Complaint Status
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Change the status and add resolution notes if needed.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedComplaint && (
-            <div className="space-y-5 py-2">
-              <div className="grid gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                <h3 className="font-semibold text-gray-900">
-                  {selectedComplaint.subject}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1 max-h-24 overflow-y-auto">
-                  {selectedComplaint.description}
-                </p>
-                {selectedComplaint.location && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    <strong>Location:</strong> {selectedComplaint.location}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <Select
-                  value={newStatus}
-                  onValueChange={(value) =>
-                    setNewStatus(value as ComplaintStatus)
-                  }>
-                  <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-md">
-                    <SelectItem
-                      value="open"
-                      className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
-                      Open
-                    </SelectItem>
-                    <SelectItem
-                      value="under_review"
-                      className="text-yellow-700 hover:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-800 cursor-pointer">
-                      Under Review
-                    </SelectItem>
-                    <SelectItem
-                      value="resolved"
-                      className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
-                      Resolved
-                    </SelectItem>
-                    <SelectItem
-                      value="closed"
-                      className="text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:text-gray-800 cursor-pointer">
-                      Closed
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Priority
-                </label>
-                <Select
-                  value={newPriority}
-                  onValueChange={(value) => setNewPriority(value)}>
-                  <SelectTrigger className="bg-white border-gray-300 hover:border-accent focus:border-accent">
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-md">
-                    <SelectItem
-                      value="low"
-                      className="text-green-700 hover:bg-green-50 focus:bg-green-50 focus:text-green-800 cursor-pointer">
-                      Low
-                    </SelectItem>
-                    <SelectItem
-                      value="medium"
-                      className="text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-800 cursor-pointer">
-                      Medium
-                    </SelectItem>
-                    <SelectItem
-                      value="high"
-                      className="text-orange-700 hover:bg-orange-50 focus:bg-orange-50 focus:text-orange-800 cursor-pointer">
-                      High
-                    </SelectItem>
-                    <SelectItem
-                      value="urgent"
-                      className="text-red-700 hover:bg-red-50 focus:bg-red-50 focus:text-red-800 cursor-pointer">
-                      Urgent
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Resolution Notes
-                </label>
-                <Textarea
-                  placeholder="Add notes about how this was resolved or additional information"
-                  value={resolutionNotes}
-                  onChange={(e) => setResolutionNotes(e.target.value)}
-                  rows={4}
-                  className="bg-white border-gray-300 focus:border-accent resize-none"
-                />
-              </div>
-
-              {/* Display Images */}
-              {selectedComplaint.image_urls &&
-                selectedComplaint.image_urls.length > 0 && (
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Attached Images
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-gray-50">
-                      {selectedComplaint.image_urls.map((url, index) => (
-                        <a
-                          key={index}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity">
-                          <img
-                            src={url}
-                            alt={`Complaint image ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-            </div>
-          )}
-
-          <DialogFooter className="border-t pt-4 mt-4 gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setUpdateDialogOpen(false)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateStatus}
-              disabled={processing}
-              className="bg-accent text-white hover:bg-accent-dark">
-              {processing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Update Status"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Update Status Dialog - Replaced with EditComplaintDialog component */}
+      {selectedComplaint && (
+        <EditComplaintDialog
+          complaint={selectedComplaint}
+          isOpen={updateDialogOpen}
+          onOpenChange={setUpdateDialogOpen}
+          onComplaintUpdated={() => {
+            loadComplaints();
+            setSelectedComplaint(null);
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
