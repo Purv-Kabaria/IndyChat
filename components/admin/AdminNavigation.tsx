@@ -10,7 +10,6 @@ import {
   Menu,
   X,
   ChevronLeft,
-  Newspaper,
   AlertCircle,
 } from "lucide-react";
 
@@ -35,11 +34,6 @@ export default function AdminNavigation() {
       href: "/admin/documents",
       icon: File,
     },
-    {
-      name: "News",
-      href: "/admin/news",
-      icon: Newspaper,
-    },
   ];
 
   const isActive = (path: string) => {
@@ -57,9 +51,12 @@ export default function AdminNavigation() {
     <>
       {/* Mobile menu spacer - pushes content down on mobile */}
       <div className="lg:hidden h-16"></div>
-      
+
       {/* Mobile menu button */}
-      <div className={`lg:hidden fixed top-4 left-4 z-50 ${mobileMenuOpen ? 'hidden' : 'block'}`}>
+      <div
+        className={`lg:hidden fixed top-4 left-4 z-50 ${
+          mobileMenuOpen ? "hidden" : "block"
+        }`}>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="p-2.5 rounded-lg bg-accent shadow-lg text-white transition-all duration-200 hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-white/20">

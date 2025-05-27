@@ -61,6 +61,8 @@ type ExtendedComplaint = ComplaintBaseType & {
     first_name: string;
     last_name: string;
   } | null;
+  location?: string;
+  image_urls?: string[];
 };
 
 export default function ComplaintsAdminPage() {
@@ -128,7 +130,9 @@ export default function ComplaintsAdminPage() {
         (complaint.profiles?.last_name &&
           complaint.profiles.last_name
             .toLowerCase()
-            .includes(searchTerm.toLowerCase()));
+            .includes(searchTerm.toLowerCase())) ||
+        (complaint.location &&
+          complaint.location.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStatus =
         statusFilter === "all" || complaint.status === statusFilter;
@@ -246,7 +250,6 @@ export default function ComplaintsAdminPage() {
     try {
       await deleteComplaint(selectedComplaint.id);
 
-      // Remove the deleted complaint from the state
       setComplaints(
         complaints.filter((complaint) => complaint.id !== selectedComplaint.id)
       );
@@ -481,12 +484,6 @@ export default function ComplaintsAdminPage() {
                 <th
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => toggleSort("id")}>
-                  ID
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => toggleSort("type")}>
                   Type
                 </th>
@@ -510,6 +507,12 @@ export default function ComplaintsAdminPage() {
                 </th>
                 <th
                   scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => toggleSort("location")}>
+                  Location
+                </th>
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
@@ -530,9 +533,6 @@ export default function ComplaintsAdminPage() {
               {paginatedComplaints.length > 0 ? (
                 paginatedComplaints.map((complaint) => (
                   <tr key={complaint.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {complaint.id?.substring(0, 8)}...
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
                       {complaint.type}
                     </td>
@@ -544,6 +544,9 @@ export default function ComplaintsAdminPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {getPriorityBadge(complaint.priority)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {complaint.location || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {complaint.profiles ? (
@@ -597,7 +600,7 @@ export default function ComplaintsAdminPage() {
               ) : (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-6 py-4 text-center text-sm text-gray-500">
                     No complaints found.
                   </td>
@@ -635,7 +638,7 @@ export default function ComplaintsAdminPage() {
 
       {/* Update Status Dialog */}
       <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
-        <DialogContent className="bg-white border-0 shadow-lg">
+        <DialogContent className="bg-white border-0 shadow-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4 mb-4">
             <DialogTitle className="text-xl font-bold text-accent-dark">
               Update Complaint Status
@@ -654,6 +657,11 @@ export default function ComplaintsAdminPage() {
                 <p className="text-sm text-gray-600 mt-1 max-h-24 overflow-y-auto">
                   {selectedComplaint.description}
                 </p>
+                {selectedComplaint.location && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    <strong>Location:</strong> {selectedComplaint.location}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-2">
@@ -740,6 +748,32 @@ export default function ComplaintsAdminPage() {
                   className="bg-white border-gray-300 focus:border-accent resize-none"
                 />
               </div>
+
+              {/* Display Images */}
+              {selectedComplaint.image_urls &&
+                selectedComplaint.image_urls.length > 0 && (
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Attached Images
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-gray-50">
+                      {selectedComplaint.image_urls.map((url, index) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block aspect-square border rounded-md overflow-hidden hover:opacity-80 transition-opacity">
+                          <img
+                            src={url}
+                            alt={`Complaint image ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           )}
 
