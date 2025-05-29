@@ -75,12 +75,25 @@ function LoginPageContent() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
-      await signInWithGoogle();
+      const userCredential = await signInWithGoogle();
+      const user = userCredential.user;
+
+      const profile = await getUserProfile(user.uid);
+      
+      if (!profile) {
+        router.push("/chat");
+      } else if (profile.role === 'admin') {
+        router.push("/admin/users");
+      } else {
+        router.push("/chat");
+      }
     } catch (error: unknown) {
       const authError = error as AuthError;
       setError(authError.message || "An error occurred with Google sign in");
+    } finally {
       setLoading(false);
     }
   };
