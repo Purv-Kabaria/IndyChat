@@ -43,6 +43,12 @@ import { ComplaintType } from "@/functions/complaintUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import { UserRole } from "@/lib/auth-utils";
 import { toast } from "@/components/ui/use-toast";
+import {
+  handleSubmitLogic,
+  HandleSubmitLogicParams,
+} from "@/functions/chatSubmitHandler";
+import { MessageContent } from "./MessageContent";
+import { useAuthAndConversations } from "@/hooks/useAuthAndConversations";
 
 const messageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -63,135 +69,6 @@ const extractMessageContent = (content: string): string => {
   }
   return content;
 };
-
-interface MessageContentProps {
-  content: string;
-  onComplaintClick: () => void;
-  onImageClick: (imageUrl: string) => void;
-}
-
-function MessageContent({
-  content,
-  onComplaintClick,
-  onImageClick,
-}: MessageContentProps) {
-  const hasComplaintButton = content.includes("<complaint button>");
-  const cleanContentForInitialProcessing = hasComplaintButton
-    ? content.replace(/<complaint button>/g, "")
-    : content;
-
-  const cloudinaryImageRegex =
-    /(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/[^/]+\/[^\s]+\.(?:jpg|jpeg|png|gif|webp))/gi;
-
-  const parts = cleanContentForInitialProcessing.split(cloudinaryImageRegex);
-
-  return (
-    <>
-      {parts.map((part, index) => {
-        if (part && part.match(cloudinaryImageRegex)) {
-          return (
-            <div
-              key={`cloudinary-img-${index}`}
-              className="my-2 relative w-full max-w-md mx-auto aspect-video cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => onImageClick(part)}>
-              <Image
-                src={part}
-                alt="Cloudinary Image"
-                layout="fill"
-                objectFit="contain"
-                className="rounded-md shadow-md"
-              />
-            </div>
-          );
-        }
-
-        if (part && part.trim() !== "") {
-          return (
-            <ReactMarkdown
-              key={`text-segment-${index}`}
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({
-                  href,
-                  children,
-                  ...props
-                }: React.HTMLProps<HTMLAnchorElement>) => (
-                  <a
-                    href={href}
-                    {...props}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-secondary hover:underline">
-                    {children}
-                  </a>
-                ),
-                p: ({ children }: React.HTMLProps<HTMLParagraphElement>) => (
-                  <p className="mb-3 last:mb-0">{children}</p>
-                ),
-                ol: ({ children }) => (
-                  <ol className="list-decimal list-inside my-3 ml-2">
-                    {children}
-                  </ol>
-                ),
-                ul: ({ children }) => (
-                  <ul className="list-disc list-inside my-3 ml-2">
-                    {children}
-                  </ul>
-                ),
-                li: ({ children }: React.HTMLProps<HTMLLIElement>) => (
-                  <li className="mb-1">{children}</li>
-                ),
-                code: ({
-                  inline,
-                  className,
-                  children,
-                  ...props
-                }: React.HTMLProps<HTMLElement> & { inline?: boolean }) => {
-                  const match = /language-(\w+)/.exec(className || "");
-                  const language = match?.[1];
-                  return !inline ? (
-                    <pre
-                      className={`bg-accent/90 rounded-md p-3 my-3 overflow-x-auto language-${
-                        language || "none"
-                      }`}>
-                      <code
-                        className={`block text-primary text-sm font-mono whitespace-pre`}
-                        {...props}>
-                        {children}
-                      </code>
-                    </pre>
-                  ) : (
-                    <code
-                      className={`bg-accent/20 text-accent rounded px-1 py-0.5 text-xs font-mono ${
-                        className || ""
-                      }`}
-                      {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}>
-              {part}
-            </ReactMarkdown>
-          );
-        }
-        return null;
-      })}
-
-      {hasComplaintButton && (
-        <div className="mt-3">
-          <Button
-            onClick={onComplaintClick}
-            className="bg-accent hover:bg-accent/90 text-white"
-            size="sm">
-            <AlertCircle className="w-4 h-4 mr-2" />
-            File a Complaint
-          </Button>
-        </div>
-      )}
-    </>
-  );
-}
 
 export default function ChatComponent() {
   const searchParams = useSearchParams();
@@ -234,39 +111,32 @@ export default function ChatComponent() {
     return `msg-${Date.now()}-${counter}`;
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setFirebaseUserId(user.uid);
-        setUserId(user.uid);
-        if (profile?.id) {
-          setIsLoadingConversations(true);
-          try {
-            const convos = await getConversationsForUser(profile.id);
-            setConversationsList(convos);
-          } catch (error) {
-            console.error("Error fetching conversations:", error);
-            setConversationsList([]);
-          } finally {
-            setIsLoadingConversations(false);
-          }
-        }
-      } else {
-        setFirebaseUserId(null);
-        let guestDifyUserId = localStorage.getItem("difyGuestUserId");
-        if (!guestDifyUserId) {
-          guestDifyUserId = `guest-web-${Date.now()}-${Math.random()
-            .toString(36)
-            .substring(2, 10)}`;
-          localStorage.setItem("difyGuestUserId", guestDifyUserId);
-        }
-        setUserId(guestDifyUserId);
-        setConversationsList([]);
-        setCurrentConversationId(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [profile?.id]);
+  useAuthAndConversations({
+    profile,
+    profileLoading,
+    setUserId,
+    setFirebaseUserId,
+    setConversationsList,
+    setIsLoadingConversations,
+    setCurrentConversationId,
+  });
+
+  const detectComplaintIntent = (messageText: string): ComplaintType | null => {
+    const lowerCaseMessage = messageText.toLowerCase();
+    if (
+      lowerCaseMessage.includes("file a complaint") ||
+      lowerCaseMessage.includes("formal complaint")
+    ) {
+      return "complaint";
+    }
+    if (
+      lowerCaseMessage.includes("report issue") ||
+      lowerCaseMessage.includes("problem with")
+    ) {
+      return "report";
+    }
+    return null;
+  };
 
   const handleSelectConversation = useCallback(
     async (conversationIdToLoad: string) => {
@@ -381,8 +251,8 @@ export default function ChatComponent() {
       if (!userId || profileLoading) return;
 
       const complaintIntent = detectComplaintIntent(trimmedInput);
-      if (complaintIntent && complaintIntent !== null) {
-        setIsLoading(true);
+
+      if (complaintIntent) {
         const userMessageForComplaint: Message = {
           role: "user",
           content: trimmedInput,
@@ -395,86 +265,35 @@ export default function ChatComponent() {
           userMessageForComplaint,
         ]);
         setInput("");
+        const currentUploadedFilesForComplaint = [...uploadedFiles];
         setUploadedFiles([]);
 
-        let activeFirebaseConvIdForComplaint = currentConversationId;
-        if (
-          !activeFirebaseConvIdForComplaint &&
-          firebaseUserId &&
-          profile?.email
-        ) {
-          try {
-            activeFirebaseConvIdForComplaint = await createConversation(
-              firebaseUserId,
-              profile.email,
-              userMessageForComplaint
-            );
-            setCurrentConversationId(activeFirebaseConvIdForComplaint);
-
-            setConversationsList((prev) =>
-              [
-                {
-                  id: activeFirebaseConvIdForComplaint!,
-                  user_id: firebaseUserId,
-                  user_email: profile.email!,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                } as Omit<ConversationType, "messages">,
-                ...prev,
-              ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-            );
-          } catch (error) {
-            console.error(
-              "Error creating Firebase conversation for complaint intent:",
-              error
-            );
-          }
-        } else if (activeFirebaseConvIdForComplaint && firebaseUserId) {
-          try {
-            await addMessageToConversation(
-              activeFirebaseConvIdForComplaint,
-              userMessageForComplaint
-            );
-            setConversationsList((prev) =>
-              prev
-                .map((c) =>
-                  c.id === activeFirebaseConvIdForComplaint
-                    ? { ...c, updatedAt: new Date() }
-                    : c
-                )
-                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-            );
-          } catch (error) {
-            console.error(
-              "Error adding complaint intent message to Firebase:",
-              error
-            );
-          }
-        }
-
-        setTimeout(() => {
-          const assistantResponse: Message = {
-            role: "assistant",
-            content:
-              complaintIntent === "complaint"
-                ? "I understand you'd like to file a complaint. Please use the form below."
-                : complaintIntent === "report"
-                ? "I can help you report this issue. Please use the form below."
-                : complaintIntent === "feedback"
-                ? "Thank you for your feedback. Please use the form below to submit it formally."
-                : "I can help with that. Please use the form below to provide more details.",
-            timestamp: new Date(),
-            id: generateMessageId(),
-          };
-          setMessages((prev) => [...prev, assistantResponse]);
-          setComplaintType(complaintIntent);
-          setShowComplaintForm(true);
-          setIsLoading(false);
-        }, 700);
+        await handleSubmitLogic({
+          input,
+          trimmedInput,
+          uploadedFiles,
+          currentUploadedFiles: currentUploadedFilesForComplaint,
+          userId,
+          profileLoading,
+          currentConversationId,
+          firebaseUserId,
+          profile,
+          difyConversationId,
+          isTemporaryChat,
+          generateMessageId,
+          setIsLoading,
+          setMessages,
+          setInput,
+          setUploadedFiles,
+          setCurrentConversationId,
+          setConversationsList,
+          setDifyConversationId,
+          setComplaintType,
+          setShowComplaintForm,
+          detectComplaintIntent,
+        });
         return;
       }
-
-      setIsLoading(true);
 
       const userMessage: Message = {
         role: "user",
@@ -488,181 +307,30 @@ export default function ChatComponent() {
       const currentUploadedFiles = [...uploadedFiles];
       setUploadedFiles([]);
 
-      let activeFirebaseConvId = currentConversationId;
-      let isNewFirebaseConversation = false;
-      let capturedDifyIdForNewChat: string | null = null;
-      let firstChunkProcessedForThisCall = false;
-      const assistantMessageId = generateMessageId();
-
-      try {
-        if (!isTemporaryChat && firebaseUserId && profile?.email) {
-          if (!activeFirebaseConvId) {
-            const newConvId = await createConversation(
-              firebaseUserId,
-              profile.email,
-              userMessage
-            );
-            setCurrentConversationId(newConvId);
-            activeFirebaseConvId = newConvId;
-            isNewFirebaseConversation = true;
-            setConversationsList((prev) =>
-              [
-                {
-                  id: newConvId,
-                  user_id: firebaseUserId,
-                  user_email: profile.email!,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                } as Omit<ConversationType, "messages">,
-                ...prev,
-              ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-            );
-          } else if (activeFirebaseConvId) {
-            await addMessageToConversation(activeFirebaseConvId, userMessage);
-            setConversationsList((prev) =>
-              prev
-                .map((c) =>
-                  c.id === activeFirebaseConvId
-                    ? { ...c, updatedAt: new Date() }
-                    : c
-                )
-                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-            );
-          }
-        }
-
-        const filesToSend: DifyFileParam[] = currentUploadedFiles.map((f) => ({
-          type: f.type.startsWith("image") ? "image" : "file",
-          transfer_method: "local_file",
-          upload_file_id: f.id,
-        }));
-
-        let fullAssistantResponse = "";
-
-        const setDifyConversationIdCallback = (
-          newDifyIdFromBackend: string | null
-        ) => {
-          setDifyConversationId(newDifyIdFromBackend);
-          if (
-            isNewFirebaseConversation &&
-            activeFirebaseConvId &&
-            newDifyIdFromBackend
-          ) {
-            capturedDifyIdForNewChat = newDifyIdFromBackend;
-          }
-        };
-
-        await sendMessageToBackend(
-          trimmedInput,
-          userId,
-          filesToSend,
-          difyConversationId,
-          generateMessageId,
-          setIsLoading,
-          setDifyConversationIdCallback,
-          (chunk) => {
-            if (!firstChunkProcessedForThisCall) {
-              setIsLoading(false);
-
-              setMessages((prevMsgs) => [
-                ...prevMsgs,
-                {
-                  role: "assistant",
-                  content: chunk,
-                  timestamp: new Date(),
-                  id: assistantMessageId,
-                },
-              ]);
-              fullAssistantResponse = chunk;
-              firstChunkProcessedForThisCall = true;
-            } else {
-              fullAssistantResponse += chunk;
-              setMessages((prevMsgs) =>
-                prevMsgs.map((msg) =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: fullAssistantResponse }
-                    : msg
-                )
-              );
-            }
-          }
-        );
-
-        if (
-          !isTemporaryChat &&
-          activeFirebaseConvId &&
-          firebaseUserId &&
-          fullAssistantResponse
-        ) {
-          const assistantMessageForFirebase: Message = {
-            id: assistantMessageId,
-            role: "assistant",
-            content: fullAssistantResponse,
-            timestamp: new Date(),
-          };
-          await addMessageToConversation(
-            activeFirebaseConvId,
-            assistantMessageForFirebase
-          );
-
-          setConversationsList((prev) =>
-            prev
-              .map((c) => {
-                if (c.id === activeFirebaseConvId) {
-                  const updatedConv: Omit<ConversationType, "messages"> = {
-                    ...c,
-                    updatedAt: new Date(),
-                  };
-                  if (isNewFirebaseConversation && capturedDifyIdForNewChat) {
-                    updatedConv.difyConversationId = capturedDifyIdForNewChat;
-                  }
-                  return updatedConv;
-                }
-                return c;
-              })
-              .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-          );
-        }
-
-        if (
-          !isTemporaryChat &&
-          isNewFirebaseConversation &&
-          activeFirebaseConvId &&
-          capturedDifyIdForNewChat
-        ) {
-          try {
-            await updateConversationDifyId(
-              activeFirebaseConvId,
-              capturedDifyIdForNewChat
-            );
-          } catch (error) {
-            console.error(
-              "[ChatComponent] handleSubmit: Failed to update Firebase conversation with Dify ID:",
-              error
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error in handleSubmit:", error);
-        setIsLoading(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Error: ${
-              error instanceof Error
-                ? error.message
-                : "An unexpected error occurred."
-            }`,
-            timestamp: new Date(),
-            id: assistantMessageId,
-          },
-        ]);
-      } finally {
-        if (!firstChunkProcessedForThisCall) {
-          setIsLoading(false);
-        }
-      }
+      await handleSubmitLogic({
+        input,
+        trimmedInput,
+        uploadedFiles,
+        currentUploadedFiles,
+        userId,
+        profileLoading,
+        currentConversationId,
+        firebaseUserId,
+        profile,
+        difyConversationId,
+        isTemporaryChat,
+        generateMessageId,
+        setIsLoading,
+        setMessages,
+        setInput,
+        setUploadedFiles,
+        setCurrentConversationId,
+        setConversationsList,
+        setDifyConversationId,
+        setComplaintType,
+        setShowComplaintForm,
+        detectComplaintIntent,
+      });
     },
     [
       input,
@@ -671,11 +339,20 @@ export default function ChatComponent() {
       profileLoading,
       currentConversationId,
       firebaseUserId,
-      profile?.email,
+      profile,
       difyConversationId,
       generateMessageId,
       setDifyConversationId,
       isTemporaryChat,
+      setMessages,
+      setInput,
+      setUploadedFiles,
+      setCurrentConversationId,
+      setConversationsList,
+      setComplaintType,
+      setShowComplaintForm,
+      detectComplaintIntent,
+      setIsLoading,
     ]
   );
 
@@ -753,23 +430,6 @@ export default function ChatComponent() {
     };
     checkUserRole();
   }, [profile, profileLoading]);
-
-  const detectComplaintIntent = (messageText: string): ComplaintType | null => {
-    const lowerCaseMessage = messageText.toLowerCase();
-    if (
-      lowerCaseMessage.includes("file a complaint") ||
-      lowerCaseMessage.includes("formal complaint")
-    ) {
-      return "complaint";
-    }
-    if (
-      lowerCaseMessage.includes("report issue") ||
-      lowerCaseMessage.includes("problem with")
-    ) {
-      return "report";
-    }
-    return null;
-  };
 
   const handleComplaintComplete = () => {
     setShowComplaintForm(false);

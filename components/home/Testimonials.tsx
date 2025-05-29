@@ -67,19 +67,19 @@ const Testimonials = () => {
       text: "IndyChat helped me find the perfect restaurant for my anniversary dinner. It knew all the best spots in Mass Ave and even suggested making reservations through OpenTable!",
       name: "Sarah J.",
       role: "Downtown Resident",
-      image: "https://randomuser.me/api/portraits/women/45.jpg"
+      image: "https://images.pexels.com/photos/4342352/pexels-photo-4342352.jpeg?auto=compress&cs=tinysrgb&w=600"
     },
     {
       text: "As a new resident, IndyChat has been invaluable for learning about trash pickup days and local services. It saved me hours of searching through city websites.",
       name: "Michael T.",
       role: "Broad Ripple",
-      image: "https://randomuser.me/api/portraits/men/32.jpg"
+      image: "https://images.pexels.com/photos/5920775/pexels-photo-5920775.jpeg?auto=compress&cs=tinysrgb&w=600"
     },
     {
       text: "I use IndyChat every weekend to find family-friendly events. It's like having a personal concierge for the city! The kids love asking it what's happening this weekend.",
       name: "Lisa M.",
       role: "Fountain Square",
-      image: "https://randomuser.me/api/portraits/women/68.jpg"
+      image: "https://images.pexels.com/photos/5876695/pexels-photo-5876695.jpeg?auto=compress&cs=tinysrgb&w=600"
     }
   ];
   
