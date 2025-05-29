@@ -13,39 +13,28 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import Image from "next/image";
 import { extractIframes, createSafeIframe } from "@/functions/iframeUtils";
-import { sendMessageToBackend } from "@/functions/messageUtils";
 import { uploadFile } from "@/functions/uploadUtils";
 import {
   Message,
   UploadedFile,
-  DifyFileParam,
   Conversation as ConversationType,
 } from "@/types/chat";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { TTSButton } from "@/components/ui/TTSButton";
 import { STTButton } from "@/components/ui/STTButton";
 import {
-  auth,
-  createConversation,
-  addMessageToConversation,
-  getConversationsForUser,
   getConversationWithMessages,
-  updateConversationDifyId,
   deleteConversation,
 } from "@/lib/firebase";
 import ChatSidebar from "./ChatSidebar";
 import { ComplaintMessage } from "./ComplaintMessage";
 import { ComplaintType } from "@/functions/complaintUtils";
-import { onAuthStateChanged } from "firebase/auth";
 import { UserRole } from "@/lib/auth-utils";
 import { toast } from "@/components/ui/use-toast";
 import {
   handleSubmitLogic,
-  HandleSubmitLogicParams,
 } from "@/functions/chatSubmitHandler";
 import { MessageContent } from "./MessageContent";
 import { useAuthAndConversations } from "@/hooks/useAuthAndConversations";
@@ -121,7 +110,7 @@ export default function ChatComponent() {
     setCurrentConversationId,
   });
 
-  const detectComplaintIntent = (messageText: string): ComplaintType | null => {
+  const detectComplaintIntent = useCallback((messageText: string): ComplaintType | null => {
     const lowerCaseMessage = messageText.toLowerCase();
     if (
       lowerCaseMessage.includes("file a complaint") ||
@@ -136,7 +125,7 @@ export default function ChatComponent() {
       return "report";
     }
     return null;
-  };
+  }, []);
 
   const handleSelectConversation = useCallback(
     async (conversationIdToLoad: string) => {
@@ -861,11 +850,15 @@ export default function ChatComponent() {
               aria-label="Close image view">
               <X className="h-5 w-5" />
             </button>
-            <img
-              src={lightboxImageUrl}
-              alt="Enlarged view"
-              className="block max-w-full max-h-full object-contain rounded"
-            />
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <Image
+                src={lightboxImageUrl}
+                alt="Enlarged view"
+                layout="fill"
+                objectFit="contain"
+                className="rounded"
+              />
+            </div>
           </div>
         </div>
       )}
