@@ -20,6 +20,10 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
   const stopFunctionRef = useRef<(() => void) | null>(null);
 
   const handleTTS = async () => {
+    // Regex to find URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const textWithoutLinks = text.replace(urlRegex, ""); // Remove URLs
+
     if (isPlaying) {
       // Stop playback if already playing
       if (stopFunctionRef.current) {
@@ -78,7 +82,7 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
       }
 
       const { audio, stop } = await playTextToSpeech(
-        text,
+        textWithoutLinks, // Use the modified text
         profile,
         token, // Pass the token here
         () => setIsTtsLoading(true),

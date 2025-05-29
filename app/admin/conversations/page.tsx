@@ -381,7 +381,7 @@ export default function AdminConversationsPage() {
                             {formatDate(msg.date?.toString())}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap break-all">
                           {msg.message}
                         </p>
                         {msg.attachedFiles && msg.attachedFiles.length > 0 && (
