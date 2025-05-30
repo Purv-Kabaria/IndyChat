@@ -47,11 +47,6 @@ function LoginPageContent() {
         return;
       }
       
-      if (profile.role === 'admin') {
-        router.push("/admin/users");
-        return;
-      }
-      
       router.push("/chat");
     } catch (error: unknown) {
       const authError = error as AuthError;
