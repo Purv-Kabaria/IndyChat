@@ -1,8 +1,7 @@
 import './globals.css';
-import PageTransition from '../components/layout/PageTransition';
+import PageTransition from '@/components/layout/PageTransition';
 import { AuthProvider } from '@/lib/auth-context';
 
-// This must remain a server component
 export const metadata = {
   title: 'IndyChat',
   description: 'Chatbot for Indianapolis',
