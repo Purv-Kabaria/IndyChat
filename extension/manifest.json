@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "IndyChat Assistant",
+  "version": "1.0",
+  "description": "A chatbot assistant powered by Dify API",
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/indianapolis.png",
+      "48": "images/indianapolis.png",
+      "128": "images/indianapolis.png"
+    }
+  },
+  "icons": {
+    "16": "images/indianapolis.png",
+    "48": "images/indianapolis.png",
+    "128": "images/indianapolis.png"
+  }
+}
+
