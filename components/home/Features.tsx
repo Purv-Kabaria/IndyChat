@@ -52,23 +52,23 @@ const Features = () => {
     },
     {
       icon: <MapPin className="w-8 h-8" />,
-      title: "Neighborhood Guide",
-      description: "Explore different areas and what makes each Indianapolis neighborhood unique. Find the perfect place to live or visit."
+      title: "Location Previews",
+      description: "Ask about the best places to visit in Indianapolis, including restaurants, bars, and attractions, and get directions as well as their images."
     },
     {
       icon: <Utensils className="w-8 h-8" />,
       title: "Dining & More",
-      description: "Get personalized recommendations for restaurants, bars, and attractions based on your preferences and location."
+      description: "Ask locations of restaurants, bars, and attractions based on your preferences and location."
     },
     {
       icon: <Bus className="w-8 h-8" />,
       title: "Transportation",
-      description: "Real-time updates on INDYGO bus routes, road closures, bike share locations, and parking options downtown."
+      description: "Information about IndyGo bus routes, road closures, bike share locations, and parking options downtown."
     },
     {
       icon: <EmergencyPlus className="w-8 h-8" />,
       title: "Emergency Resources",
-      description: "Quick access to emergency contacts, hospital locations, and important safety information for Marion County."
+      description: "Report emergencies, get important safety information, and find the nearest hospitals."
     }
   ];
   

@@ -12,36 +12,43 @@ type StepProps = {
 const Step = ({ number, title, description, index }: StepProps) => {
   return (
     <motion.div 
-      className="step flex flex-col items-center text-center mb-16 relative"
+      className="step flex flex-col items-center text-center mb-12 md:mb-0 md:w-1/3 md:px-4 relative"
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ 
-        duration: 0.6, 
+        duration: 0.7, 
         delay: index * 0.2,
         ease: "easeOut"
       }}
-      viewport={{ once: true, amount: 0.1 }}
+      viewport={{ once: true, amount: 0.2 }}
     >
       <motion.div 
-        className="w-16 h-16 bg-[#14284b] text-white rounded-full flex items-center justify-center text-2xl font-bold mb-6"
-        whileHover={{ scale: 1.1, rotate: 5 }}
-        transition={{ type: "spring", stiffness: 400 }}
+        className="w-20 h-20 bg-accent text-white rounded-full flex items-center justify-center text-3xl font-bold mb-8 shadow-lg group-hover:shadow-xl transition-shadow duration-300"
+        whileHover={{ scale: 1.1, rotate: 3 }}
+        transition={{ type: "spring", stiffness: 300, damping: 10 }}
       >
         {number}
       </motion.div>
-      <div className="max-w-md">
-        <h3 className="text-2xl font-semibold text-[#14284b] mb-4">{title}</h3>
-        <p className="text-gray-600 leading-relaxed">{description}</p>
-      </div>
-      {number < 3 && (
-        <motion.div 
-          className="absolute left-1/2 bottom-[-40px] w-0.5 h-8 bg-[#94d2bd] transform -translate-x-1/2"
-          initial={{ height: 0 }}
-          whileInView={{ height: 32 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
+      <div className="max-w-md px-2 md:px-0">
+        <motion.h3 
+          className="text-xl lg:text-2xl font-semibold text-accent mb-3"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: index * 0.2 + 0.3 }}
           viewport={{ once: true }}
-        />
-      )}
+        >
+          {title}
+        </motion.h3>
+        <motion.p 
+          className="text-gray-600 leading-relaxed text-sm lg:text-base"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: index * 0.2 + 0.4 }}
+          viewport={{ once: true }}
+        >
+          {description}
+        </motion.p>
+      </div>
     </motion.div>
   );
 };
@@ -51,7 +58,7 @@ const HowItWorks = () => {
     { 
       number: 1, 
       title: "Start a Conversation",
-      description: "Click the chat icon in the corner of any page to begin. No downloads or installations needed."
+      description: "Click the chat link in the header to begin. No downloads or installations needed."
     },
     { 
       number: 2, 
@@ -62,22 +69,22 @@ const HowItWorks = () => {
       number: 3, 
       title: "Get Instant Answers",
       description: "Receive accurate, up-to-date information tailored to your specific query, with links to more details when needed."
-    }
+    },
   ];
   
   return (
-    <div className="py-24 px-8 bg-white" id="how-it-works">
+    <div className="py-24 px-4 sm:px-6 bg-gradient-to-b from-gray-light via-white to-white" id="how-it-works">
       <motion.div 
-        className="text-center mb-16"
-        initial={{ opacity: 0, y: 30 }}
+        className="text-center mb-20 sm:mb-24"
+        initial={{ opacity: 0, y: 40 }}
         whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
+        transition={{ duration: 0.8, ease: "easeOut"}}
         viewport={{ once: true, amount: 0.1 }}
       >
-        <h2 className="text-3xl font-bold text-[#14284b] mb-4">How It Works</h2>
-        <p className="text-gray-600">Getting answers about Indianapolis has never been easier</p>
+        <h2 className="text-4xl lg:text-5xl font-cal font-bold text-accent mb-5">How It Works</h2>
+        <p className="text-lg text-gray-600 max-w-xl mx-auto">Getting answers about Indianapolis has never been easier.</p>
       </motion.div>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:justify-between md:space-x-8 lg:space-x-12">
         {steps.map((step, index) => (
           <Step 
             key={index}
