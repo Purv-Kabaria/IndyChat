@@ -41,7 +41,6 @@ const SignOutButton = () => {
       router.push("/login?message=You have been signed out");
     } catch (error) {
       console.error("Error signing out: ", error);
-      // Handle error (e.g., show a notification)
     }
   };
 

@@ -69,7 +69,6 @@ export function createSafeIframe(
       </div>
     );
   } else {
-    // Desktop
     const styleWidth = !isNaN(numWidth)
       ? `${numWidth}px`
       : widthAttrMatch

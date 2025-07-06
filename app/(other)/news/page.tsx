@@ -139,7 +139,6 @@ export default function NewsPage() {
       <Navbar />
 
       <main className="min-h-screen bg-gray-50 text-gray-800">
-        {/* Page Header Section */}
         <motion.section
           className="py-20 md:py-32 px-4 bg-accent text-white text-center"
           variants={fadeIn}
@@ -162,7 +161,6 @@ export default function NewsPage() {
           </div>
         </motion.section>
 
-        {/* News Articles Section */}
         <motion.section
           className="py-16 md:py-24 px-4"
           variants={staggerContainer}
@@ -176,12 +174,10 @@ export default function NewsPage() {
               Latest Articles
             </motion.h2>
 
-            {/* Controls Section */}
             <motion.div
               variants={fadeIn}
               className="mb-12 p-6 bg-white rounded-lg shadow-md ">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                {/* Search Input */}
                 <div className="md:col-span-1">
                   <label
                     htmlFor="search-articles"
@@ -199,7 +195,6 @@ export default function NewsPage() {
                   />
                 </div>
 
-                {/* Category Filter */}
                 <div>
                   <label
                     htmlFor="category-filter"
@@ -235,7 +230,6 @@ export default function NewsPage() {
                   </Select>
                 </div>
 
-                {/* Sort By */}
                 <div>
                   <label
                     htmlFor="sort-by"
@@ -311,7 +305,6 @@ export default function NewsPage() {
                     className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col group"
                     variants={{ ...fadeIn, ...cardHover }}
                     whileHover="hover">
-                    {/* Enhanced Image Handling */}
                     <div className="w-full h-48 bg-gray-200 flex items-center justify-center overflow-hidden relative">
                       {article.image_url ? (
                         <Image

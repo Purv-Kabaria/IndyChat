@@ -523,7 +523,6 @@ export default function ChatComponent() {
 
   return (
     <div className="flex h-[100dvh] w-full bg-primary overflow-hidden">
-      {/* New Mobile Header */}
       {isMobile && (
         <header className="fixed top-0 left-0 right-0 h-14 bg-primary text-primary-foreground flex items-center justify-between px-4 shadow-lg z-40">
           <div className="flex items-center gap-3">
@@ -725,7 +724,6 @@ export default function ChatComponent() {
 
         <div className="bg-background border-t border-border p-2 md:p-4">
           <div className="max-w-3xl mx-auto">
-            {/* "File a Complaint" Quick Action Button/Chip */}
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
@@ -739,7 +737,6 @@ export default function ChatComponent() {
                 <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
                 File a Complaint
               </Button>
-              {/* You can add other quick action buttons here if needed */}
             </div>
 
             {uploadedFiles.length > 0 && (
@@ -836,7 +833,6 @@ export default function ChatComponent() {
         </div>
       </div>
 
-      {/* Lightbox Modal */}
       {isLightboxOpen && lightboxImageUrl && (
         <div
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 cursor-zoom-out"

@@ -63,7 +63,6 @@ export async function isAdmin(user?: User | null): Promise<boolean> {
 
 export async function updateUserRole(userId: string, role: UserRole): Promise<boolean> {
   try {
-    // Check if current user is admin
     const isCurrentUserAdmin = await isAdmin();
     if (!isCurrentUserAdmin) {
       console.error('Only admins can update user roles');
@@ -85,7 +84,6 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<bo
 
 export async function getAllUsers(): Promise<UserProfile[] | null> {
   try {
-    // Check if current user is admin
     const isCurrentUserAdmin = await isAdmin();
     if (!isCurrentUserAdmin) {
       console.error('Only admins can retrieve all users');

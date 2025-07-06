@@ -31,7 +31,6 @@ export function useUserProfile() {
           return;
         }
 
-        // Set profile data
         const userProfile: UserProfile = {
           id: userId,
           email: userData.email || "",
@@ -55,7 +54,6 @@ export function useUserProfile() {
       }
     };
     
-    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         fetchUserProfile(user.uid);

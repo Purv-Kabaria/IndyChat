@@ -13,19 +13,22 @@ interface TTSButtonProps {
   isLastMessage?: boolean;
 }
 
-export function TTSButton({ text, profile, isLoading = false, isLastMessage = false }: TTSButtonProps) {
+export function TTSButton({
+  text,
+  profile,
+  isLoading = false,
+  isLastMessage = false,
+}: TTSButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stopFunctionRef = useRef<(() => void) | null>(null);
 
   const handleTTS = async () => {
-    // Regex to find URLs
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const textWithoutLinks = text.replace(urlRegex, ""); // Remove URLs
+    const textWithoutLinks = text.replace(urlRegex, "");
 
     if (isPlaying) {
-      // Stop playback if already playing
       if (stopFunctionRef.current) {
         stopFunctionRef.current();
         stopFunctionRef.current = null;
@@ -33,33 +36,33 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
       return;
     }
 
-    // Check if TTS is enabled in the user's profile
     if (!profile?.tts_enabled) {
-      // Alert the user that TTS is not enabled
-      const enableTTS = confirm("Text-to-speech is not enabled in your profile. Would you like to enable it now?");
-      
+      const enableTTS = confirm(
+        "Text-to-speech is not enabled in your profile. Would you like to enable it now?"
+      );
+
       if (enableTTS) {
         try {
-          // Check if user is authenticated
           const currentUser = auth.currentUser;
           if (!currentUser || !profile?.id) {
             throw new Error("You must be logged in to enable text-to-speech");
           }
-          
-          // Update user profile in Firestore
+
           await updateUserProfile(profile.id, {
             tts_enabled: true,
           });
-          
-          alert("Text-to-speech has been enabled. You can now listen to messages.");
-          // Continue with TTS after enabling
+
+          alert(
+            "Text-to-speech has been enabled. You can now listen to messages."
+          );
         } catch (error) {
-          console.error('Error updating TTS setting:', error);
-          alert('Failed to enable text-to-speech. Please try again or update your settings in the profile page.');
+          console.error("Error updating TTS setting:", error);
+          alert(
+            "Failed to enable text-to-speech. Please try again or update your settings in the profile page."
+          );
           return;
         }
       } else {
-        // User declined to enable TTS
         return;
       }
     }
@@ -68,23 +71,25 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
       const currentUser = auth.currentUser;
       if (!currentUser) {
         alert("You must be logged in to use text-to-speech.");
-        // Optionally, trigger a login flow here
+
         return;
       }
 
       let token;
       try {
-        token = await currentUser.getIdToken(true); // Pass true to force refresh if needed
+        token = await currentUser.getIdToken(true);
       } catch (error) {
         console.error("Error getting ID token:", error);
-        alert("Your session may have expired. Please try logging out and logging back in.");
+        alert(
+          "Your session may have expired. Please try logging out and logging back in."
+        );
         return;
       }
 
       const { audio, stop } = await playTextToSpeech(
-        textWithoutLinks, // Use the modified text
+        textWithoutLinks,
         profile,
-        token, // Pass the token here
+        token,
         () => setIsTtsLoading(true),
         () => {
           setIsPlaying(false);
@@ -97,7 +102,10 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
           setIsTtsLoading(false);
           audioRef.current = null;
           stopFunctionRef.current = null;
-          alert(error.message || 'An error occurred while processing your request. Please try again.');
+          alert(
+            error.message ||
+              "An error occurred while processing your request. Please try again."
+          );
         }
       );
 
@@ -107,29 +115,35 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
         setIsPlaying(true);
       }
     } catch (error) {
-      console.error('Error with TTS button:', error);
+      console.error("Error with TTS button:", error);
     }
   };
 
-  // Show loading dots when message is being generated and it's the last message
   if (isLoading && isLastMessage) {
     return (
       <div className="flex space-x-1">
-        <div className="h-1 w-1 bg-accent/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-        <div className="h-1 w-1 bg-accent/40 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
-        <div className="h-1 w-1 bg-accent/40 rounded-full animate-bounce" style={{ animationDelay: "400ms" }} />
+        <div
+          className="h-1 w-1 bg-accent/40 rounded-full animate-bounce"
+          style={{ animationDelay: "0ms" }}
+        />
+        <div
+          className="h-1 w-1 bg-accent/40 rounded-full animate-bounce"
+          style={{ animationDelay: "200ms" }}
+        />
+        <div
+          className="h-1 w-1 bg-accent/40 rounded-full animate-bounce"
+          style={{ animationDelay: "400ms" }}
+        />
       </div>
     );
   }
 
-  // Show listen/stop button when message is complete
   return (
     <button
       onClick={handleTTS}
       disabled={isTtsLoading}
       className="text-xs flex items-center gap-1 text-accent/70 hover:text-accent transition-colors p-1 rounded-md"
-      title={isPlaying ? "Stop speaking" : "Listen to this message"}
-    >
+      title={isPlaying ? "Stop speaking" : "Listen to this message"}>
       {isTtsLoading ? (
         <Loader2 className="h-3 w-3 animate-spin" />
       ) : isPlaying ? (
@@ -137,13 +151,7 @@ export function TTSButton({ text, profile, isLoading = false, isLastMessage = fa
       ) : (
         <Volume2 className="h-3 w-3" />
       )}
-      <span>
-        {isTtsLoading 
-          ? "Loading..." 
-          : isPlaying 
-            ? "Stop" 
-            : "Listen"}
-      </span>
+      <span>{isTtsLoading ? "Loading..." : isPlaying ? "Stop" : "Listen"}</span>
     </button>
   );
-} 
+}

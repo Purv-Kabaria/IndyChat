@@ -55,7 +55,6 @@ const SocialIcon = ({
   href: string;
   ariaLabel: string;
 }) => {
-  // SVG paths for different social media icons
   const getIconPath = (social: string) => {
     switch (social.toLowerCase()) {
       case "facebook":

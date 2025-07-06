@@ -105,7 +105,7 @@ export const submitComplaint = async (
       subject: data.subject,
       description: data.description,
       status: "open",
-      priority: "medium", // Default priority
+      priority: "medium",
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     };
@@ -116,10 +116,9 @@ export const submitComplaint = async (
     if (imagePublicIds.length > 0) {
       complaintDocData.image_public_ids = imagePublicIds;
     }
-    if (data.location && data.location.trim() !== "") { // Check for non-empty string
+    if (data.location && data.location.trim() !== "") { 
       complaintDocData.location = data.location;
     }
-    // Optional fields like resolved_at, resolution_notes, assigned_to will be omitted if not set
 
     await addDoc(collection(db, "complaints"), complaintDocData);
   } catch (error) {

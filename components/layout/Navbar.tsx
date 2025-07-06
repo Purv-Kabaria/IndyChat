@@ -125,7 +125,6 @@ const Navbar = () => {
   return (
     <nav className="py-4 px-8 bg-white w-full border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        {/* Logo */}
         <Link
           href="/"
           className="text-2xl font-bold text-[#243b5f] flex items-center gap-2">
@@ -139,7 +138,6 @@ const Navbar = () => {
           <span>IndyChat</span>
         </Link>
 
-        {/* Desktop Navigation Links */}
         <div className="hidden lg:flex items-center space-x-10">
           <motion.div {...linkHoverTapProps}>
             <Link
@@ -188,7 +186,6 @@ const Navbar = () => {
           </motion.div>
         </div>
 
-        {/* Desktop Auth Buttons */}
         <div className="hidden lg:flex items-center space-x-4">
           <AnimatePresence mode="wait">
             {isLoggedIn ? (
@@ -240,7 +237,6 @@ const Navbar = () => {
           </AnimatePresence>
         </div>
 
-        {/* Mobile Menu Button */}
         <motion.button
           className="lg:hidden text-accent text-2xl"
           onClick={toggleMenu}
@@ -251,7 +247,6 @@ const Navbar = () => {
         </motion.button>
       </div>
 
-      {/* Mobile Menu Drawer with AnimatePresence */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div

@@ -42,7 +42,6 @@ export default function ContactPage() {
       <Navbar />
 
       <main className="min-h-screen bg-gray-50">
-        {/* Hero Section */}
         <motion.section
           className="bg-accent text-primary py-20 px-4"
           initial="initial"
@@ -62,7 +61,6 @@ export default function ContactPage() {
           </div>
         </motion.section>
 
-        {/* Contact Cards */}
         <motion.section
           className="py-16 px-4"
           initial="initial"
@@ -123,7 +121,6 @@ export default function ContactPage() {
           </div>
         </motion.section>
 
-        {/* Contact Form & Map */}
         <motion.section
           className="py-16 px-4 bg-white"
           initial="initial"
@@ -131,7 +128,6 @@ export default function ContactPage() {
           variants={staggerContainer}
           viewport={{ once: true }}>
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Contact Form */}
             <motion.div className="space-y-6" variants={fadeIn}>
               <h2 className="text-3xl font-cal text-accent mb-8">
                 Send Us a Message
@@ -203,7 +199,6 @@ export default function ContactPage() {
               </form>
             </motion.div>
 
-            {/* Map */}
             <motion.div
               className="h-full w-full rounded-xl overflow-hidden shadow-lg min-h-[400px] lg:min-h-full"
               variants={fadeIn}>

@@ -457,7 +457,6 @@ export default function DocumentsPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* Mobile card view for small screens */}
                   <div className="sm:hidden space-y-4 p-4">
                     {documents.map((doc) => (
                       <div
@@ -500,7 +499,6 @@ export default function DocumentsPage() {
                     ))}
                   </div>
 
-                  {/* Desktop table for larger screens */}
                   <table className="min-w-full divide-y divide-gray-200 hidden sm:table">
                     <thead className="bg-gray-50">
                       <tr>

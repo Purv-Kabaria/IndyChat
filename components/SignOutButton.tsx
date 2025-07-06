@@ -24,9 +24,8 @@ export default function SignOutButton({
   const handleSignOut = async () => {
     setLoading(true);
     try {
-      // Sign out using Firebase
       await logOut();
-      
+
       if (onSignOut) {
         await onSignOut();
       }

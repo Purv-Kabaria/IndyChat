@@ -356,7 +356,6 @@ export default function ComplaintsAdminPage() {
         </Button>
       </div>
 
-      {/* Filters and search */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div>
           <Input
@@ -448,7 +447,6 @@ export default function ComplaintsAdminPage() {
         </div>
       </div>
 
-      {/* Complaints table */}
       <div className="bg-white shadow rounded-lg overflow-hidden border">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -577,7 +575,6 @@ export default function ComplaintsAdminPage() {
         </div>
       </div>
 
-      {/* Pagination */}
       {filteredComplaints.length > pageSize && (
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center space-x-2">
@@ -602,7 +599,6 @@ export default function ComplaintsAdminPage() {
         </div>
       )}
 
-      {/* Update Status Dialog - Replaced with EditComplaintDialog component */}
       {selectedComplaint && (
         <EditComplaintDialog
           complaint={selectedComplaint}
@@ -615,7 +611,6 @@ export default function ComplaintsAdminPage() {
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-white">
           <AlertDialogHeader>

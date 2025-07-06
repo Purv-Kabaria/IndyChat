@@ -100,7 +100,6 @@ export default function AboutPage() {
       <Navbar />
 
       <main className="min-h-screen bg-gray-50 text-gray-800">
-        {/* Introduction Section */}
         <motion.section className="py-16 md:py-40 px-4 bg-white">
           <div className="max-w-4xl mx-auto text-center">
             <motion.h2
@@ -127,7 +126,6 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* How IndyChat Works Section */}
         <motion.section className="py-16 md:py-24 px-4 bg-accent text-white">
           <div className="max-w-5xl mx-auto">
             <motion.h2
@@ -162,7 +160,6 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* Chatbot Features Section */}
         <motion.section className="py-16 md:py-24 px-4 bg-white">
           <div className="max-w-5xl mx-auto">
             <motion.h2
@@ -205,7 +202,6 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* Mission Statement */}
         <motion.section className="bg-accent text-white py-20 md:py-28 px-4">
           <div className="max-w-4xl mx-auto text-center">
             <motion.h2
@@ -241,7 +237,6 @@ export default function AboutPage() {
           </div>
         </motion.section>
 
-        {/* Get Involved Section */}
         <motion.section className="py-16 md:py-24 px-4 bg-white">
           <div className="max-w-4xl mx-auto text-center">
             <motion.h2

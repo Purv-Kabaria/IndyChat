@@ -1,57 +1,138 @@
-Project Title:
-Indianapolis Digital Assistant for Civic Engagement and City Services
+# 🏙️ Indianapolis Digital Assistant for Civic Engagement and City Services — IndyChat
 
-Overview:
-This project is a city-specific AI chatbot platform designed to assist residents, workers, and visitors of Indianapolis, Indiana. The assistant provides timely, accurate, and helpful information regarding local government services, transit, events, housing, education, public safety, and more. It is intended to serve as a digital bridge between the public and the city’s extensive network of services, making city-related information and tasks more accessible and understandable.
+**IndyChat** is a scalable, AI-powered chatbot platform designed to assist the residents, workers, and visitors of **Indianapolis, Indiana**. Built for the [Chatbot for Public Safety Hackathon](https://chatbot-for-public-safety.devpost.com/), the project bridges the gap between people and the city’s public services using a modern tech stack, real-time information delivery, and intelligent civic engagement tools.
 
-Images:
+> 🔗 Live: [indychat.vercel.app](https://indychat.vercel.app)  
+> 💻 GitHub: [github.com/Purv-Kabaria/IndyChat](https://github.com/Purv-Kabaria/IndyChat)
 
-[Home](https://i.ibb.co/pBCWbBHV/home.png)
+---
 
-[Chat](https://i.ibb.co/93sCPvS8/chat.png)
+## 🌟 Highlights
 
-Platform Details:
+- AI chatbot powered by Dify with Retrieval-Augmented Generation (RAG)
+- Complaint and report submission through chat
+- TTS/STT support via ElevenLabs
+- Google Maps + city image embeds
+- Admin dashboard for monitoring, publishing, user and data management
 
-- Web Frontend: Built using Next.js, optimized for performance and SEO, designed for easy access via desktops and tablets.
-- AI Backend: Powered by Dify AI, which handles natural language understanding, response generation, and prompt orchestration using a highly customized prompt engineered for locality-specific queries and structured civic guidance.
+---
 
-Key Features:
+## 💡 Key Features
 
-1. Interactive Chatbot: Users can ask the bot questions about the city as well as anything related to safety.
+### 🗨️ Smart Chat Interface
+- Built with `shadcn/ui` and modeled after ChatGPT’s layout
+- Context-aware, locality-specific query handling
+- Temporary and saved chat history support
 
-2. Complaints/Reports: Users can make complaints or report emergencies within the site itself.
+### 📍 City Info + Navigation
+- Live Google Maps directions
+- Images and metadata of Indianapolis landmarks
+- Event, safety, transit, and service-based Q&A
 
-3. TTS and STT: IndyChat provides both text-to-speech and speech-to-text services using ElevenLabs.
+### 🛠️ Admin Panel
+- Upload PDFs as bot knowledge base (RAG-ready)
+- View/manage users, complaints, and conversation logs
+- Create city-wide announcements and blog posts
 
-4. Locations and Images: The bot can provide exact locations on google maps, and images of locations in Indianapolis too.
+### 🎙️ Voice Support
+- **Text-to-Speech** and **Speech-to-Text** via **ElevenLabs**
 
-5. Admin Dashboard: Admins can see users' conversations with the bot, can make articles of importance in the news page, perform operations on the complaints or reports made by users, see all the users' data, and upload documents to act as the knowledge base for the chatbot. *It is up to the admins what they want to supply as the knowledge base.*
+---
 
-6. Chrome Extension: Users can interact with the bot across all tabs in the browser as well, for fast answers.
+## 🛠️ Tech Stack
 
-7. Voice Agent: Users can dial the number shown in the video to gain access to valuable information about the city, and be informed about emergencies in the city or other safety measurements.
+**Frontend:**  
+- `Next.js 15` (App Router, Server Actions, Edge Functions)  
+- `TypeScript`, `Tailwind CSS v3`, `shadcn/ui`
 
-Tech Stack:
+**Backend:**  
+- `Firebase Auth`, `Firestore`, `Cloud Functions`  
+- `Dify AI` with custom prompt design  
+- `Cloudinary` for image handling  
+- `ElevenLabs` for voice services
 
-- Frontend Web: Next.js (React, TypeScript, TailwindCSS)
-- Backend Web: Firebase, Cloudinary
-- AI Layer: Dify AI platform with highly customized prompt and system instructions
-- Hosting/Deployment: Vercel (Web)
+**Deployment:**  
+- Hosted on `Vercel`
 
-How to Run:
+---
 
-*We highly recommend you using the deployed website for easier access, as local setup will take some amount of time.*
+## ⚙️ Local Setup Instructions
 
-1. Clone the repository by 'git clone https://github.com/Purv-Kabaria/IndyChat'
+> ⚠️ For casual users, use the [live site](https://indychat.vercel.app). Local setup requires Firebase/Dify credentials and some configuration effort.
 
-2. Run the command 'cd IndyChat'.
+### 1. Clone the Repository
 
-3. Run the command 'npm install' or 'pnpm install'.
+```bash
+git clone https://github.com/Purv-Kabaria/IndyChat
+cd IndyChat
+```
 
-4. Fill in the details to the .env file (tedious and will take time). This step will also require you to index your firestore database, allow domains, and enable oauth.
+### 2. Install Dependencies
 
-5. Run the command 'npm run dev' or 'pnpm dev'.
+```bash
+npm install
+# or
+pnpm install
+```
 
-6. Admin Testing Account Credentials: xofefa@azuretechtalk.net, admin12345678
+### 3. Setup Environment Variables
 
-7. User Testing Account Credentials: gotuha@polkaroad.net, user12345678
+Create a `.env.local` file and configure:
+
+- Firebase project settings (API key, Auth domain, DB URL, etc.)
+- Dify API keys
+- ElevenLabs API key
+- Cloudinary keys
+
+> This also requires setting up Firestore indexes and OAuth redirect domains in Firebase Console.
+
+### 4. Run Dev Server
+
+```bash
+npm run dev
+# or
+pnpm dev
+```
+
+---
+
+## 🧪 Test Accounts
+
+**Admin:**  
+- Email: `xofefa@azuretechtalk.net`  
+- Password: `admin12345678`
+
+**User:**  
+- Email: `gotuha@polkaroad.net`  
+- Password: `user12345678`
+
+---
+
+## 📁 Project Structure
+
+```
+/app              → App Router-based pages and layouts (Next 15)
+/components       → Reusable UI components
+/lib              → Firebase & utility logic
+/pages/api        → API endpoints (server functions)
+/public           → Static assets and images
+/styles           → Tailwind base + global styles
+```
+
+---
+
+## 🚀 Deployment
+
+Deployed using **Vercel** with automatic CI from GitHub.  
+Ensure `.env` variables are securely configured in Vercel’s dashboard for production.
+An example `.env.example` file is given in the repository.
+
+---
+
+## 👨‍💻 Team
+
+- **Purv Kabaria**  
+- Rushang Bagada  
+- Gaurav Damor  
+- Jenil Prajapati  
+- Krishna Tahiliani

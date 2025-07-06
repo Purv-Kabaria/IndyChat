@@ -42,7 +42,6 @@ export default function AdminRouteGuard({
           }
 
           try {
-            // Check if user is admin by querying their Firestore profile
             const isAdmin = await checkUserIsAdmin(user.uid);
 
             if (isAdmin) {
@@ -89,7 +88,8 @@ export default function AdminRouteGuard({
               Error occurred checking admin permissions
             </p>
             <p className="text-sm mt-2">
-              This is likely an issue with the Firestore database or security rules.
+              This is likely an issue with the Firestore database or security
+              rules.
             </p>
           </div>
 

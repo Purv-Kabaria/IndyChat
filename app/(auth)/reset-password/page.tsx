@@ -89,7 +89,6 @@ function ResetPasswordPageContent() {
   );
 }
 
-// Loading fallback component
 function ResetPasswordPageFallback() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-gradient-to-b from-dark via-accent to-highlight/90 px-4 sm:px-6">

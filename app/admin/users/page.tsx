@@ -257,7 +257,6 @@ export default function AdminDashboard() {
                 </table>
               </div>
 
-              {/* Pagination Controls */}
               {filteredUsers.length > 0 && (
                 <div className="flex items-center justify-between mt-4 px-2">
                   <div className="text-sm text-gray-500">

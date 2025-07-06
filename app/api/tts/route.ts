@@ -19,33 +19,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Firebase Authentication: Verify ID Token from Authorization header
     const authorizationHeader = request.headers.get("Authorization");
     if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized: Missing or malformed Authorization header" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Missing or malformed Authorization header" },
+        { status: 401 }
+      );
     }
     const idToken = authorizationHeader.split("Bearer ")[1];
     if (!idToken) {
-      return NextResponse.json({ error: "Unauthorized: Missing token" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Missing token" },
+        { status: 401 }
+      );
     }
 
     let decodedClaims;
     try {
-      decodedClaims = await adminAuth.verifyIdToken(idToken, true /** checkRevoked */);
+      decodedClaims = await adminAuth.verifyIdToken(
+        idToken,
+        true /** checkRevoked */
+      );
     } catch (authError) {
       console.error("Firebase auth error (ID token verification):", authError);
-      return NextResponse.json({ error: "Unauthorized: Invalid ID token" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid ID token" },
+        { status: 401 }
+      );
     }
 
     const userId = decodedClaims.uid;
 
-    // Fetch user profile from Firestore to get TTS settings
     const userProfileRef = adminDb.collection("users").doc(userId);
     const userProfileSnap = await userProfileRef.get();
 
     if (!userProfileSnap.exists) {
       console.error(`User profile not found for UID: ${userId}`);
-      return NextResponse.json({ error: "User profile not found" }, { status: 403 });
+      return NextResponse.json(
+        { error: "User profile not found" },
+        { status: 403 }
+      );
     }
 
     const userProfile = userProfileSnap.data() as UserProfile;
@@ -65,8 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
-    const voiceId =
-      body.voiceId || userProfile?.voice_id || DEFAULT_VOICE_ID;
+    const voiceId = body.voiceId || userProfile?.voice_id || DEFAULT_VOICE_ID;
 
     const response = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
       method: "POST",
