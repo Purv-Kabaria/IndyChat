@@ -1,0 +1,62 @@
+.card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+  margin: 20px auto;
+  padding: 20px;
+  width: 350px;
+  height:400px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  overflow: auto;
+  color: #222;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+}
+
+.card img {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 10px;
+  transition: transform 0.4s ease;
+}
+
+.card img:hover {
+  transform: scale(1.05);
+}
+
+.card h3 {
+  margin: 15px 0 10px;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--primary-color, #646cff);
+}
+
+.card p {
+  font-size: 1rem;
+  color: #444;
+  line-height: 1.4;
+}
+
+/* Dark mode styles override */
+.dark-mode .card {
+  background-color: #2b2b2b;
+  color: #e0e0e0;
+  box-shadow: 0 6px 15px rgba(255, 255, 255, 0.05);
+}
+
+.dark-mode .card h3 {
+  color: #a6aaff;
+}
+
+.dark-mode .card p {
+  color: #ccc;
+}
+
+
